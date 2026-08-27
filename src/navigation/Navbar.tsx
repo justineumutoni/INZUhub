@@ -1,36 +1,34 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { NavbarProps } from '../types/navbar'
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TextInput, InputAccessoryView, Button } from 'react-native'
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TextInput, InputAccessoryView, Button, Pressable, Alert } from 'react-native'
 import { Feather, Ionicons } from '@expo/vector-icons';
 
-
 export function Navbar() {
-    const [LoggedIn, setLoggedIn] = React.useState(false);
-    const [notificationCount, setNotificationCount] = React.useState(0);
-    const NavbarContent: NavbarProps = {
-        notificationText: "3",
-        imageUrl: "",
-        name: "John Doe"
-    }
+    const [text, setText] = useState('');
     return (
         <SafeAreaView style={{display: 'flex', flexDirection: 'column', gap: 30}}>
         <View style={styles.navbar}>
+            <View>
+                 <Text style={styles.text}>Room Finder</Text>
+            </View>
             <Text style={styles.text}>Room Finder</Text>
             <View style={styles.searchProperty}>
                 <Text style={styles.searchText}>Fint a property anywhere.</Text>
-                <ScrollView keyboardDismissMode="interactive">
                 <TextInput
                     style={styles.textInput}
-                    inputAccessoryViewID={inputAccessoryViewID}
                     onChangeText={setText}
                     value={text}
-                    placeholder={'Please type here…'}
+                    placeholder={'Search address or near you…'}
                 />
-                </ScrollView>
-                 <InputAccessoryView nativeID={inputAccessoryViewID}>
-                    <Button onPress={() => setText(initialText)} title="Clear text" />
-                </InputAccessoryView>
+                <Pressable 
+                onPress={() => Alert.alert('Button Pressed!')}
+                // You can pass an array to conditionally apply styles when pressed
+                style={styles.button}
+                >
+                <Text style={styles.buttonText}>Search Now</Text>
+                </Pressable>
                </View>
+               
         </View>
         </SafeAreaView>
     )
@@ -41,32 +39,51 @@ const styles = StyleSheet.create({
         backgroundColor: '#2C56C0',
         height: 212,
         borderRadius: 20,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1000,
     },
     text: {
         textAlign: 'center',
         fontSize: 24,
         fontWeight: 'bold',
         color: '#FDFDFD',
-        paddingVertical: 61,
+        paddingVertical: 50,
+        zIndex: 1,
     },
-    navbarNotification: {
-        position: 'relative',
+    textInput: {
+    padding: 10,
+    backgroundColor: '#F7F7F7',
+    borderRadius: 5,
     },
-    notificationText: {
-        position: 'absolute',
-        top: -3,
-        left: 20,
-        fontSize: 17,
-        fontWeight: 'bold',
-        backgroundColor: '#f8c12a',
-        width: 25,
-        height: 25,
-        borderRadius: 15,
-        padding: 1,
-        textAlign: 'center',
-        color: 'white',
+    searchProperty: {
+        backgroundColor: '#FFFFFF',
+        width: 313,
+        height: 196,
+        padding: 20,
+        borderRadius: 10,
+        gap: 20,
+        boxShadow: '0px 0px 2px rgba(0, 0, 0, 0.25)',
     },
-    navbarIcon:{
-        fontWeight: 'bold',
-    }
+searchText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    width: 179,
+},
+button: {
+    backgroundColor: '#2C56C0',
+    borderRadius: 5,
+    padding: 15,
+    marginTop: 7,
+},
+buttonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    textAlign: 'center',
+}
 })

@@ -1,13 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { Navbar } from './src/navigation/Navbar';
-import { Rentalproperty } from './src/navigation/main/Rentalproperty';
+import { Property } from './src/navigation/main/property';
 
 export default function App() {
   return (
     <View style={styles.container}>
       <Navbar />
-      {/* <Rentalproperty /> */}
+      <Property />
     </View>
   );
 }
