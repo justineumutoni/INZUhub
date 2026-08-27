@@ -1,27 +1,22 @@
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-view';
-// import { Navbar } from './src/navigation/Navbar';
-// import { Property } from './src/navigation/main/property';
-import { Splash } from './src/navigation/main/Splash';
-import { Navbar } from './src/navigation/Navbar';
-import Login from './src/navigation/main/Login';
+import { StyleSheet, SafeAreaView } from 'react-native';
+import { Navbar } from './src/navigation/navbar/Navbar';
+import { Property } from './src/navigation/main/property';
+
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <View style={styles.container}>
-        <Login />
-      </View>
-    </SafeAreaProvider>
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
+      <Navbar />
+      <Property />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#2C56C0',
-    display: 'flex',
-    flexDirection: 'column',
-    
+    backgroundColor: '#FFFFFF',
   },
 });
