@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, Alert, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export function Navbar() {
@@ -10,7 +10,7 @@ export function Navbar() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.headerBanner}>
         <Text style={styles.title}>Room Finder</Text>
       </View>
@@ -37,7 +37,7 @@ export function Navbar() {
         </Pressable>
       </View>
 
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     width: '90%',
     maxWidth: 360,
-    marginTop: -40,
+    marginTop: -80,
     padding: 18,
     borderRadius: 14,
     shadowColor: '#000',

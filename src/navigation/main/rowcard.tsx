@@ -172,8 +172,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     textTransform: 'capitalize',
-    width:'100%',
-    
   },
   locationRow: {
     flexDirection: 'row',
