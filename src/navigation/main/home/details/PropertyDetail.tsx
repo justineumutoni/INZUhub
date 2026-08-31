@@ -5,13 +5,13 @@ import {
   View, 
   Image, 
   ScrollView, 
-  TouchableOpacity, 
-  SafeAreaView, 
+  TouchableOpacity,  
   Alert,
   ImageBackground,
   Platform,
   StatusBar
 } from 'react-native';
+import SafeAreaView from 'react-native-safe-area-view';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PropertyDetailData } from '../../../../types/property';

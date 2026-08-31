@@ -14,6 +14,7 @@ import { Property } from './src/navigation/main/home/property';
 import { PropertyDetail } from './src/navigation/main/home/details/PropertyDetail';
 import Setting from './src/navigation/main/setting/setting';
 import Account from './src/navigation/main/account/account';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { RootStackParamList } from './src/navigation/login/Login';
 
@@ -43,6 +44,7 @@ export default function App() {
 
   return (
     <NavigationContainer>
+    <SafeAreaProvider>
       <Stack.Navigator
         screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
         // Logged-in users skip auth flow and go straight to Home
@@ -74,6 +76,7 @@ export default function App() {
         {/* 8. PropertyDetail — Property details screen */}
         <Stack.Screen name="PropertyDetail" component={PropertyDetail} />
       </Stack.Navigator>
+    </SafeAreaProvider>
     </NavigationContainer>
   );
 }
