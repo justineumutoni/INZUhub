@@ -24,7 +24,7 @@ const Splash = ({ navigation }: Props) => {
     Animated.parallel([
       Animated.timing(logoOpacity, {
         toValue: 1,
-        duration: 700,
+        duration: 5000,
         useNativeDriver: true,
       }),
       Animated.spring(logoScale, {
@@ -37,7 +37,7 @@ const Splash = ({ navigation }: Props) => {
       // Fade in subtitle after logo lands
       Animated.timing(subtitleOpacity, {
         toValue: 1,
-        duration: 500,
+        duration: 5000,
         useNativeDriver: true,
       }).start();
     });
@@ -64,7 +64,7 @@ const Splash = ({ navigation }: Props) => {
         <View style={styles.logoCircle}>
           <Text style={styles.logoIcon}>🏠</Text>
         </View>
-        <Text style={styles.appName}>Room Finder</Text>
+        <Text style={styles.appName}>INZU hub</Text>
       </Animated.View>
 
       {/* Subtitle */}

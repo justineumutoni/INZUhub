@@ -11,7 +11,11 @@ import Register from './src/navigation/Login/Login';
 import EmailVerification from './src/navigation/Login/EmailVerification';
 import SignIn from './src/navigation/Login/Verification';
 import { Property } from './src/navigation/main/property';
-
+import Setting from './src/navigation/main/setting/setting';
+import Account from './src/navigation/main/account/account';
+import Help from './src/navigation/main/setting/help';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { PropertyDetail } from './src/navigation/details/PropertyDetail';
 import type { RootStackParamList } from './src/navigation/Login/Login';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -40,6 +44,7 @@ export default function App() {
 
   return (
     <NavigationContainer>
+      <SafeAreaProvider>
       <Stack.Navigator
         screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
         // Logged-in users skip auth flow and go straight to Home
@@ -61,7 +66,20 @@ export default function App() {
         {/* ── App ─────────────────────────────────────────────────────────── */}
         {/* 5. Home — Property listing screen (post-login) */}
         <Stack.Screen name="Home" component={Property} />
+
+        {/* 6. Settings Screen */}
+        <Stack.Screen name="Settings" component={Setting} />
+
+        {/* 7. Account Screen */}
+        <Stack.Screen name="Account" component={Account} />
+
+        {/* 8. PropertyDetail — Property details screen */}
+        <Stack.Screen name="PropertyDetail" component={PropertyDetail} />
+
+        {/* 9. Help Screen */}
+        <Stack.Screen name="Help" component={Help} />
       </Stack.Navigator>
+      </SafeAreaProvider>
     </NavigationContainer>
   );
 }

@@ -18,6 +18,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
+import { PropertyDetailData } from '../../types/property'
 
 // ─── Navigation Types (shared across all screens) ─────────────────────────────
 export type RootStackParamList = {
@@ -26,6 +27,10 @@ export type RootStackParamList = {
   EmailVerification: { email: string };
   SignIn: { registered?: boolean };
   Home: undefined;
+  Settings: undefined;
+  Account: undefined;
+  PropertyDetail?: { property?: PropertyDetailData };
+  Help: undefined;
 };
 
 type Props = {
@@ -68,11 +73,11 @@ export default function Register({ navigation }: Props) {
     if (!validate()) return;
     setLoading(true);
     try {
-      // 1. Create Firebase Auth user (must be first — needed for uid)
+      // 1. Create Firebase Auth user (validates email & creates credentials quickly)
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
 
-      // 2. Run the remaining 3 calls in parallel — cuts wait time by ~3x
-      await Promise.all([
+      // 2. Fire secondary tasks in background without blocking UI navigation
+      Promise.all([
         // Update display name in Firebase Auth
         updateProfile(cred.user, { displayName: fullName.trim() }),
         // Send verification email
@@ -85,9 +90,11 @@ export default function Register({ navigation }: Props) {
           emailVerified: false,
           createdAt: serverTimestamp(),
         }),
-      ]);
+      ]).catch((bgErr) => {
+        console.warn('Background registration tasks error:', bgErr);
+      });
 
-      // 3. Navigate immediately — don't block on background tasks
+      // 3. Navigate immediately — instant response for the user
       navigation.navigate('EmailVerification', { email: email.trim() });
     } catch (err: any) {
       const code = err?.code ?? '';

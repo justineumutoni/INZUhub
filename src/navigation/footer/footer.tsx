@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { FooterIconProps } from '../../types/footer';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView } from 'react-native';
+import React, {useState} from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { FooterIconProps } from '../../types/footer';
 
 const CATEGORIES: FooterIconProps[] = [
   { id: '1', name: 'Home', iconName: 'home' },
