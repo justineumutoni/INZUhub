@@ -18,14 +18,18 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
+import type { PropertyDetailData } from '../../types/property';
 
 // ─── Navigation Types (shared across all screens) ─────────────────────────────
 export type RootStackParamList = {
   Splash: undefined;
   Login: undefined;
   EmailVerification: { email: string };
-  SignIn: { registered?: boolean };
+  SignIn: { registered?: boolean } | undefined;
   Home: undefined;
+  Settings: undefined;
+  Account: undefined;
+  PropertyDetail?: { property?: PropertyDetailData };
 };
 
 type Props = {

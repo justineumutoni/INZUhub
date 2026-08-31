@@ -6,13 +6,16 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './src/config/firebase';
 
 // Screens — in display order
-import { Splash } from './src/navigation/Login/Splash';
-import Register from './src/navigation/Login/Login';
-import EmailVerification from './src/navigation/Login/EmailVerification';
-import SignIn from './src/navigation/Login/Verification';
-import { Property } from './src/navigation/main/property';
+import { Splash } from './src/navigation/login/Splash';
+import Register from './src/navigation/login/Login';
+import EmailVerification from './src/navigation/login/EmailVerification';
+import SignIn from './src/navigation/login/Verification';
+import { Property } from './src/navigation/main/home/property';
+import { PropertyDetail } from './src/navigation/main/home/details/PropertyDetail';
+import Setting from './src/navigation/main/setting/setting';
+import Account from './src/navigation/main/account/account';
 
-import type { RootStackParamList } from './src/navigation/Login/Login';
+import type { RootStackParamList } from './src/navigation/login/Login';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -61,6 +64,15 @@ export default function App() {
         {/* ── App ─────────────────────────────────────────────────────────── */}
         {/* 5. Home — Property listing screen (post-login) */}
         <Stack.Screen name="Home" component={Property} />
+
+        {/* 6. Settings Screen */}
+        <Stack.Screen name="Settings" component={Setting} />
+
+        {/* 7. Account Screen */}
+        <Stack.Screen name="Account" component={Account} />
+
+        {/* 8. PropertyDetail — Property details screen */}
+        <Stack.Screen name="PropertyDetail" component={PropertyDetail} />
       </Stack.Navigator>
     </NavigationContainer>
   );

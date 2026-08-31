@@ -1,37 +1,73 @@
-import React, { useState } from 'react';
-import { FooterIconProps } from '../../types/footer';
+import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../login/Login';
 
-const CATEGORIES: FooterIconProps[] = [
-  { id: '1', name: 'Home', iconName: 'home' },
-  { id: '2', name: 'Search', iconName: 'search' },
-  { id: '3', name: 'Settings', iconName: 'settings-outline' },
-  { id: '4', name: 'Account', iconName: 'person-outline' },
+export interface FooterProps {
+  activeTab?: 'Home' | 'Search' | 'Settings' | 'Message' | 'Account';
+  onTabPress?: (tabName: string) => void;
+}
+
+interface TabItem {
+  id: string;
+  name: 'Home' | 'Search' | 'Settings' | 'Message' | 'Account';
+  iconName: React.ComponentProps<typeof Ionicons>['name'];
+  route?: keyof RootStackParamList;
+}
+
+const TABS: TabItem[] = [
+  { id: '1', name: 'Home', iconName: 'home', route: 'Home' },
+  { id: '2', name: 'Search', iconName: 'search-outline' },
+  { id: '3', name: 'Settings', iconName: 'options-outline', route: 'Settings' },
+  { id: '4', name: 'Message', iconName: 'mail-outline' },
+  { id: '5', name: 'Account', iconName: 'person-outline', route: 'Account' },
 ];
 
-export function Footer() {
-  const [activeCategoryId, setActiveCategoryId] = useState<string>('1');
+export function Footer({ activeTab = 'Home', onTabPress }: FooterProps) {
+  let navigation: NativeStackNavigationProp<RootStackParamList> | null = null;
+  try {
+    navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  } catch {
+    navigation = null;
+  }
+
+  const handlePress = (tab: TabItem) => {
+    if (onTabPress) {
+      onTabPress(tab.name);
+      return;
+    }
+    if (navigation && tab.route) {
+      if (tab.route === 'Home') {
+        navigation.navigate('Home');
+      } else if (tab.route === 'Settings') {
+        navigation.navigate('Settings');
+      } else if (tab.route === 'Account') {
+        navigation.navigate('Account');
+      }
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {CATEGORIES.map((item) => {
-          const isActive = item.id === activeCategoryId;
+        {TABS.map((tab) => {
+          const isActive = tab.name === activeTab;
           return (
             <TouchableOpacity
-              key={item.id}
+              key={tab.id}
               style={styles.tabItem}
-              onPress={() => setActiveCategoryId(item.id)}
+              onPress={() => handlePress(tab)}
               activeOpacity={0.7}
             >
-              <Ionicons 
-                name={item.iconName} 
-                size={22} 
-                color={isActive ? '#2C56C0' : '#9CA3AF'} 
+              <Ionicons
+                name={tab.iconName}
+                size={22}
+                color={isActive ? '#2C56C0' : '#9CA3AF'}
               />
               <Text style={[styles.tabText, isActive ? styles.activeTabText : styles.inactiveTabText]}>
-                {item.name}
+                {tab.name}
               </Text>
             </TouchableOpacity>
           );
@@ -63,8 +99,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 4,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     gap: 3,
+    minWidth: 50,
   },
   tabText: {
     fontSize: 11,

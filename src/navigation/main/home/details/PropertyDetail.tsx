@@ -14,12 +14,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { PropertyDetailData } from '../../types/property';
+import { PropertyDetailData } from '../../../../types/property';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../../login/Login';
 
-interface PropertyDetailProps {
+type PropertyDetailProps = Partial<NativeStackScreenProps<RootStackParamList, 'PropertyDetail'>> & {
   property?: PropertyDetailData;
   onBack?: () => void;
-}
+};
 
 const DEFAULT_PROPERTY: PropertyDetailData = {
   title: '1 Big Hall at Lalitpur',
@@ -34,12 +36,12 @@ const DEFAULT_PROPERTY: PropertyDetailData = {
   ownerName: 'Courtney Henry',
   ownerRole: 'Landlord',
   ownerAvatar: { uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80' },
-  heroImage: require('../../../assets/propertyImage.jpg'),
+  heroImage: require('../../../../../assets/propertyImage.jpg'),
   galleryImages: [
-    require('../../../assets/propertyImage.jpg'),
-    require('../../../assets/Property.png'),
-    require('../../../assets/propertyImage.jpg'),
-    require('../../../assets/Property.png'),
+    require('../../../../../assets/propertyImage.jpg'),
+    require('../../../../../assets/Property.png'),
+    require('../../../../../assets/propertyImage.jpg'),
+    require('../../../../../assets/Property.png'),
   ],
   extraPhotosCount: 5,
   description: '1 big hall room for rent at lalitpur, ktm with the facilities of bike parking and tap water . It offers 1 bedroom,and a 1 common bathroom for whole flat . It is suitable for student only. Price is negotiable for student only.',
@@ -51,8 +53,17 @@ const DEFAULT_PROPERTY: PropertyDetailData = {
   ],
 };
 
-export function PropertyDetail({ property, onBack }: PropertyDetailProps) {
-  const data = { ...DEFAULT_PROPERTY, ...property };
+export function PropertyDetail({ property, onBack, route, navigation }: PropertyDetailProps) {
+  const activeProperty = property || route?.params?.property;
+  const data = { ...DEFAULT_PROPERTY, ...activeProperty };
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (navigation?.canGoBack()) {
+      navigation.goBack();
+    }
+  };
 
   const handleCall = () => {
     Alert.alert('Contact Landlord', `Calling ${data.ownerName}...`);
@@ -88,7 +99,7 @@ export function PropertyDetail({ property, onBack }: PropertyDetailProps) {
         {/* 1. Hero Image with Overlay */}
         <View style={styles.heroContainer}>
           <ImageBackground
-            source={data.heroImage || require('../../../assets/propertyImage.jpg')}
+            source={data.heroImage || require('../../../../../assets/propertyImage.jpg')}
             style={styles.heroImage}
             imageStyle={styles.heroImageStyle}
             resizeMode="cover"
@@ -97,7 +108,7 @@ export function PropertyDetail({ property, onBack }: PropertyDetailProps) {
             <SafeAreaView style={styles.safeHeaderArea}>
               <TouchableOpacity 
                 style={styles.backButton}
-                onPress={onBack}
+                onPress={handleBack}
                 activeOpacity={0.7}
                 hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
               >

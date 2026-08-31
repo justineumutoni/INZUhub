@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "",
+    "name": "InzuHub",
     "slug": "InzuHub",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,6 +14,9 @@
         "backgroundColor": "#E6F4FE"
       },
       "predictiveBackGestureEnabled": false
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

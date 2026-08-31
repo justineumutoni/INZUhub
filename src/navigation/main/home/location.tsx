@@ -1,5 +1,5 @@
 import React from 'react';
-import { LocationProps } from '../../types/property';
+import { LocationProps } from '../../../types/property';
 import { 
   StyleSheet, 
   Text, 
@@ -14,25 +14,25 @@ export const locationData: LocationProps[] = [
   {
     locationId: '1',
     locationName: 'Side Streets XR',
-    locationImage: require('../../../assets/propertyImage.jpg'),
+    locationImage: require('../../../../assets/propertyImage.jpg'),
     houseAvailable: '10 Found',
   },
   {
     locationId: '2',
     locationName: 'Texa',
-    locationImage: require('../../../assets/Property.png'),
+    locationImage: require('../../../../assets/Property.png'),
     houseAvailable: '5 Found',
   },
   {
     locationId: '3',
     locationName: 'China Town',
-    locationImage: require('../../../assets/propertyImage.jpg'),
+    locationImage: require('../../../../assets/propertyImage.jpg'),
     houseAvailable: '15 Found',
   },
   {
     locationId: '4',
     locationName: 'Candi',
-    locationImage: require('../../../assets/Property.png'),
+    locationImage: require('../../../../assets/Property.png'),
     houseAvailable: '18 Found',
   },
 ];
