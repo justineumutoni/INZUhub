@@ -4,7 +4,7 @@ import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../login/Login';
+import type { RootStackParamList } from '../Login/Login';
 
 export interface FooterProps {
   activeTab?: 'Home' | 'Search' | 'Settings' | 'Message' | 'Account';

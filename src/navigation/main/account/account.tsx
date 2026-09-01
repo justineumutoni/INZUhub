@@ -17,7 +17,7 @@ import { auth } from '../../../config/firebase';
 import { Footer } from '../../footer/footer';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../login/Login';
+import type { RootStackParamList } from '../../Login/Login';
 import type { PropertyDetailData } from '../../../types/property';
 
 interface AppliedPropertyItem {

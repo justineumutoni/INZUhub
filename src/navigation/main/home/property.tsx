@@ -18,7 +18,7 @@ import { Location, locationData } from './location';
 import { Update, updateData } from './update';
 import { Navbar } from '../../navbar/Navbar';
 import { Footer } from '../../footer/footer';
-import type { RootStackParamList } from '../../login/Login';
+import type { RootStackParamList } from '../../Login/Login';
 
 const CATEGORIES: ItemData[] = [
   { id: '1', title: 'All' },

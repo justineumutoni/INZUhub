@@ -1,11 +1,10 @@
 /**
  * Firebase configuration — Expo / React Native compatible (Firebase v12+).
  *
- * Firebase v11+ removed getReactNativePersistence. The new modular SDK
- * automatically detects React Native and uses the correct persistence strategy.
- * We simply call getAuth() — no extra setup needed.
+ * Firebase v12+ uses the new modular SDK, which automatically detects React Native
+ * and applies the correct persistence strategy when using getAuth().
  */
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
@@ -19,10 +18,10 @@ const firebaseConfig = {
   measurementId: 'G-6N6ZVKXP6X',
 };
 
-// Prevent re-initializing on Expo Fast Refresh hot reload
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+// Initialize Firebase App
+const app = initializeApp(firebaseConfig);
 
-// Firebase v12 auto-handles React Native persistence — getAuth() is all you need
+// Firebase Auth instance. React Native persistence is handled automatically by the SDK.
 export const auth = getAuth(app);
 
 // Firestore database instance

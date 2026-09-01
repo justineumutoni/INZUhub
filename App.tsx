@@ -6,17 +6,17 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './src/config/firebase';
 
 // Screens — in display order
-import { Splash } from './src/navigation/login/Splash';
-import Register from './src/navigation/login/Login';
-import EmailVerification from './src/navigation/login/EmailVerification';
-import SignIn from './src/navigation/login/Verification';
+import { Splash } from './src/navigation/Login/Splash';
+import Register from './src/navigation/Login/Login';
+import EmailVerification from './src/navigation/Login/EmailVerification';
+import SignIn from './src/navigation/Login/Verification';
 import { Property } from './src/navigation/main/home/property';
 import { PropertyDetail } from './src/navigation/main/home/details/PropertyDetail';
 import Setting from './src/navigation/main/setting/setting';
 import Account from './src/navigation/main/account/account';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import type { RootStackParamList } from './src/navigation/login/Login';
+import type { RootStackParamList } from './src/navigation/Login/Login';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 

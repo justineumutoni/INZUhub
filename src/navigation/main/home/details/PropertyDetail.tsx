@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PropertyDetailData } from '../../../../types/property';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../../login/Login';
+import type { RootStackParamList } from '../../../Login/Login';
 
 type PropertyDetailProps = Partial<NativeStackScreenProps<RootStackParamList, 'PropertyDetail'>> & {
   property?: PropertyDetailData;
