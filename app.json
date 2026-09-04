@@ -16,7 +16,14 @@
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow InzuHub to access your photos to set your profile picture.",
+          "cameraPermission": "Allow InzuHub to access your camera to take a profile photo."
+        }
+      ]
     ]
   }
 }

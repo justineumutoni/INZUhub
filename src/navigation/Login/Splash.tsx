@@ -6,6 +6,7 @@ import {
   Animated,
   Platform,
   StatusBar,
+  Image,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './Login';
@@ -45,7 +46,7 @@ const Splash = ({ navigation }: Props) => {
     // Navigate to Login after 2.8 seconds
     const timer = setTimeout(() => {
       navigation.replace('Login');
-    }, 2800);
+    }, 5000);
 
     return () => clearTimeout(timer);
   }, []);
@@ -62,14 +63,13 @@ const Splash = ({ navigation }: Props) => {
         ]}
       >
         <View style={styles.logoCircle}>
-          <Text style={styles.logoIcon}>🏠</Text>
+          <Image source={require('../../../assets/icon1.png')} style={styles.logoIcon} />
         </View>
-        <Text style={styles.appName}>Room Finder</Text>
       </Animated.View>
 
       {/* Subtitle */}
       <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}>
-        Ultimate property finder
+        The simple path to owning your future.
       </Animated.Text>
 
       {/* Bottom tagline */}
@@ -93,9 +93,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   logoCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 210,
+    height: 210,
+    borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -104,7 +104,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.35)',
   },
   logoIcon: {
-    fontSize: 42,
+    width: 200,
+    height: 200,
   },
   appName: {
     fontSize: 34,

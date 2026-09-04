@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,10 +11,11 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { signOut } from 'firebase/auth';
-import { auth } from '../../../config/firebase';
+import { signOut, onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../../../config/firebase';
 import { Footer } from '../../footer/footer';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../Login/Login';
 
@@ -53,10 +54,34 @@ function MenuItem({ icon, title, onPress, isDestructive }: MenuItemProps) {
 
 export default function Setting() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const currentUser = auth.currentUser;
+  const isFocused = useIsFocused();
+  const [displayName, setDisplayName] = useState('Courtney Henry');
+  const [displayEmail, setDisplayEmail] = useState('henry11@gmail.com');
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
 
-  const displayName = currentUser?.displayName || 'Courtney Henry';
-  const displayEmail = currentUser?.email || '10 Applied  |  Archen';
+  // Sync user info from Firebase auth and Firestore whenever screen is focused
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) {
+      setDisplayName(user.displayName || 'Courtney Henry');
+      setDisplayEmail(user.email || 'henry11@gmail.com');
+      if (user.photoURL) {
+        setPhotoURL(user.photoURL);
+      }
+
+      // Fetch latest from Firestore users doc
+      getDoc(doc(db, 'users', user.uid))
+        .then((snapshot: any) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            if (data.fullName) setDisplayName(data.fullName);
+            if (data.email) setDisplayEmail(data.email);
+            if (data.photoURL) setPhotoURL(data.photoURL);
+          }
+        })
+        .catch((err: any) => console.log('Error fetching user profile:', err));
+    }
+  }, [isFocused]);
 
   const handleSignOut = () => {
     const performSignOut = async () => {
@@ -100,11 +125,15 @@ export default function Setting() {
   };
 
   const handleEditProfile = () => {
-    Alert.alert('Edit Profile', 'Profile editing options will be available soon.');
+    navigation.navigate('Account', { autoEdit: true });
   };
 
   const handleFeaturePress = (featureName: string) => {
-    Alert.alert(featureName, `${featureName} details will be available soon.`);
+    if (Platform.OS === 'web') {
+      window.alert(`${featureName} details will be available soon.`);
+    } else {
+      Alert.alert(featureName, `${featureName} details will be available soon.`);
+    }
   };
 
   return (
@@ -124,10 +153,16 @@ export default function Setting() {
         {/* ── Profile Section (Overlapping Avatar) ────────────────────────── */}
         <View style={styles.profileSection}>
           <View style={styles.avatarWrapper}>
-            <Image
-              source={{}}
-              style={styles.avatar}
-            />
+            {photoURL ? (
+              <Image
+                source={{ uri: photoURL }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Ionicons name="person" size={50} color="#94A3B8" />
+              </View>
+            )}
             <TouchableOpacity
               style={styles.plusBadge}
               activeOpacity={0.8}
@@ -163,22 +198,22 @@ export default function Setting() {
           <MenuItem
             icon="notifications-outline"
             title="Notifications"
-            onPress={() => handleFeaturePress('Notifications')}
+            onPress={() => navigation.navigate('Notifications' as never)}
           />
           <MenuItem
             icon="trending-up-outline"
             title="Recent Viewed"
-            onPress={() => handleFeaturePress('Recent Viewed')}
+            onPress={() => navigation.navigate('RecentlyViewed' as never)}
           />
           <MenuItem
             icon="help-buoy-outline"
             title="Get Help"
-            onPress={() => handleFeaturePress('Get Help')}
+            onPress={() => navigation.navigate('Help' as never)}
           />
           <MenuItem
             icon="help-circle-outline"
             title="About us"
-            onPress={() => handleFeaturePress('About Us')}
+            onPress={() => navigation.navigate('About' as never)}
           />
           <MenuItem
             icon="log-out-outline"
@@ -237,6 +272,11 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#FFFFFF',
     backgroundColor: '#E5E7EB',
+  },
+  avatarPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
   },
   plusBadge: {
     position: 'absolute',

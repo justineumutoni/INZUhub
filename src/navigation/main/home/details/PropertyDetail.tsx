@@ -5,13 +5,13 @@ import {
   View, 
   Image, 
   ScrollView, 
-  TouchableOpacity,  
+  TouchableOpacity, 
   Alert,
   ImageBackground,
   Platform,
   StatusBar
 } from 'react-native';
-import SafeAreaView from 'react-native-safe-area-view';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PropertyDetailData } from '../../../../types/property';
@@ -77,16 +77,19 @@ export function PropertyDetail({ property, onBack, route, navigation }: Property
     Alert.alert('Google Maps', `Opening map location for ${data.subLocation || data.title}...`);
   };
 
-  const handleBookNow = () => {
-    Alert.alert(
-      'Booking Request',
-      `Would you like to send a booking request for ${data.title}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Confirm', onPress: () => Alert.alert('Success', 'Your booking request has been sent!') }
-      ]
-    );
-  };
+ const handleBookNow = () => {
+  (navigation as any)?.navigate('ConfirmBooking', {
+    booking: {
+      propertyId: data.id,
+      title: data.title,
+      subLocation: data.subLocation,
+      heroImage: data.heroImage,
+      rent: 8000,
+      serviceFee: 200,
+      total: 8200,
+    },
+  });
+};
 
   return (
     <View style={styles.container}>
@@ -304,6 +307,8 @@ const styles = StyleSheet.create({
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 19,
+    backgroundColor: 'rgba(3, 43, 245, 0.66)',
   },
   heroGradient: {
     paddingHorizontal: 20,

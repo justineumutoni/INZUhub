@@ -15,9 +15,18 @@ import {
 import { Ionicons, Feather, FontAwesome } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  updateProfile,
+  sendEmailVerification,
+  signInAnonymously,
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  signInWithPopup,
+} from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
+import { registerSchema, formatZodErrors } from '../../config/validation';
 import type { PropertyDetailData } from '../../types/property';
 
 // ─── Navigation Types (shared across all screens) ─────────────────────────────
@@ -25,10 +34,10 @@ export type RootStackParamList = {
   Splash: undefined;
   Login: undefined;
   EmailVerification: { email: string };
-  SignIn: { registered?: boolean } | undefined;
+  SignIn: { registered?: boolean; email?: string } | undefined;
   Home: undefined;
   Settings: undefined;
-  Account: undefined;
+  Account: { autoEdit?: boolean } | undefined;
   PropertyDetail?: { property?: PropertyDetailData };
 };
 
@@ -47,41 +56,55 @@ export default function Register({ navigation }: Props) {
   const [secureConfirmPassword, setSecureConfirmPassword] = useState(true);
 
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<'google' | 'facebook' | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // ── Validation ──────────────────────────────────────────────────────────────
-  const isNameValid = fullName.trim().length > 0;
+  // ── Validation using Zod ──────────────────────────────────────────────────
+  const isNameValid = fullName.trim().length >= 2;
   const isEmailValid = email.includes('@') && email.includes('.');
-  const passwordsMatch = password.length > 0 && password === confirmPassword;
+  const passwordsMatch = password.length >= 6 && password === confirmPassword;
 
   const validate = () => {
-    const newErrors: { [key: string]: string } = {};
-    if (!fullName.trim()) newErrors.fullName = 'Full name is required.';
-    if (!email.trim()) newErrors.email = 'Email is required.';
-    else if (!isEmailValid) newErrors.email = 'Enter a valid email address.';
-    if (!password) newErrors.password = 'Password is required.';
-    else if (password.length < 6) newErrors.password = 'Password must be at least 6 characters.';
-    if (!confirmPassword) newErrors.confirmPassword = 'Please confirm your password.';
-    else if (password !== confirmPassword) newErrors.confirmPassword = "Passwords don't match.";
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const parseResult = registerSchema.safeParse({
+      fullName,
+      email,
+      password,
+      confirmPassword,
+    });
+
+    if (!parseResult.success) {
+      setErrors(formatZodErrors(parseResult.error));
+      return false;
+    }
+
+    setErrors({});
+    return true;
   };
 
-  // ── Create Account ──────────────────────────────────────────────────────────
+  // ── Create Account (Fast Non-Blocking) ───────────────────────────────────────
   const handleCreateAccount = async () => {
     if (!validate()) return;
     setLoading(true);
     try {
-      // 1. Create Firebase Auth user (must be first — needed for uid)
+      // 1. Create Firebase Auth user
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
 
-      // 2. Run the remaining 3 calls in parallel — cuts wait time by ~3x
-      await Promise.all([
-        // Update display name in Firebase Auth
-        updateProfile(cred.user, { displayName: fullName.trim() }),
-        // Send verification email
-        sendEmailVerification(cred.user),
-        // Save user profile to Firestore
+      // Safe timeout helper
+      const withTimeout = (promise: Promise<any>, timeoutMs: number = 3000) => {
+        return Promise.race([
+          promise,
+          new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+        ]).catch((err) => {
+          console.warn('Background auth task timeout or error:', err);
+        });
+      };
+
+      // 2. Update display name with quick timeout
+      await withTimeout(updateProfile(cred.user, { displayName: fullName.trim() }), 2500);
+
+      // 3. Trigger email verification and Firestore save non-blockingly
+      withTimeout(sendEmailVerification(cred.user), 3000);
+      withTimeout(
         setDoc(doc(db, 'users', cred.user.uid), {
           uid: cred.user.uid,
           fullName: fullName.trim(),
@@ -89,10 +112,11 @@ export default function Register({ navigation }: Props) {
           emailVerified: false,
           createdAt: serverTimestamp(),
         }),
-      ]);
+        3000
+      );
 
-      // 3. Navigate immediately — don't block on background tasks
-      navigation.navigate('EmailVerification', { email: email.trim() });
+      // 4. Navigate to Sign In with success popup message
+      navigation.navigate('SignIn', { registered: true, email: email.trim() });
     } catch (err: any) {
       const code = err?.code ?? '';
       if (code === 'auth/email-already-in-use') {
@@ -106,6 +130,54 @@ export default function Register({ navigation }: Props) {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Social Sign-Up (Google / Facebook - Instant Mock Login) ─────────────────
+  const handleSocialSignUp = async (providerType: 'google' | 'facebook') => {
+    setSocialLoading(providerType);
+    try {
+      const mockData = providerType === 'google' ? {
+        fullName: 'Alex Morgan',
+        email: 'alex.morgan@gmail.com',
+        photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+        phone: '(+1) 555-0199',
+        location: 'New York, USA',
+        status: '10 Applied | Archen',
+        provider: 'google',
+      } : {
+        fullName: 'Jordan Smith',
+        email: 'jordan.smith@facebook.com',
+        photoURL: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+        phone: '(+1) 555-0144',
+        location: 'California, USA',
+        status: '5 Applied | Archen',
+        provider: 'facebook',
+      };
+
+      try {
+        const userCred = await signInAnonymously(auth);
+        if (userCred.user) {
+          await updateProfile(userCred.user, {
+            displayName: mockData.fullName,
+            photoURL: mockData.photoURL,
+          }).catch(() => {});
+
+          await setDoc(doc(db, 'users', userCred.user.uid), {
+            uid: userCred.user.uid,
+            ...mockData,
+            lastLoginAt: serverTimestamp(),
+          }, { merge: true }).catch(() => {});
+        }
+      } catch (authErr) {
+        console.warn('Social mock login fallback:', authErr);
+      }
+
+      navigation.replace('Home');
+    } catch (err: any) {
+      navigation.replace('Home');
+    } finally {
+      setSocialLoading(null);
     }
   };
 
@@ -125,8 +197,8 @@ export default function Register({ navigation }: Props) {
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Room Finder</Text>
-            <Text style={styles.headerSubtitle}>Ultimate property finder</Text>
+            <Text style={styles.headerTitle}>InzuHub</Text>
+            <Text style={styles.headerSubtitle}>The simple path to owning your future.</Text>
           </View>
 
           {/* Card */}
@@ -250,19 +322,41 @@ export default function Register({ navigation }: Props) {
           <View style={styles.socialSection}>
             <Text style={styles.socialText}>or Sign Up with</Text>
 
-            <TouchableOpacity style={styles.socialButton} activeOpacity={0.75}>
-              <FontAwesome name="facebook-square" size={22} color="#1877F2" />
-              <Text style={styles.socialButtonText}>Continue with Facebook</Text>
+            <TouchableOpacity
+              style={styles.socialButton}
+              activeOpacity={0.75}
+              onPress={() => handleSocialSignUp('facebook')}
+              disabled={socialLoading !== null}
+            >
+              {socialLoading === 'facebook' ? (
+                <ActivityIndicator size="small" color="#1877F2" />
+              ) : (
+                <>
+                  <FontAwesome name="facebook-square" size={22} color="#1877F2" />
+                  <Text style={styles.socialButtonText}>Continue with Facebook</Text>
+                </>
+              )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.socialButton} activeOpacity={0.75}>
-              <Svg width={20} height={20} viewBox="0 0 24 24">
-                <Path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z" />
-                <Path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.27 21.36 7.35 24 12 24z" />
-                <Path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.94 0 12s.46 3.84 1.26 5.42l4.02-3.15z" />
-                <Path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.27 2.64 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
-              </Svg>
-              <Text style={styles.socialButtonText}>Continue with Google</Text>
+            <TouchableOpacity
+              style={styles.socialButton}
+              activeOpacity={0.75}
+              onPress={() => handleSocialSignUp('google')}
+              disabled={socialLoading !== null}
+            >
+              {socialLoading === 'google' ? (
+                <ActivityIndicator size="small" color="#4285F4" />
+              ) : (
+                <>
+                  <Svg width={20} height={20} viewBox="0 0 24 24">
+                    <Path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z" />
+                    <Path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.27 21.36 7.35 24 12 24z" />
+                    <Path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.94 0 12s.46 3.84 1.26 5.42l4.02-3.15z" />
+                    <Path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.27 2.64 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
+                  </Svg>
+                  <Text style={styles.socialButtonText}>Continue with Google</Text>
+                </>
+              )}
             </TouchableOpacity>
 
             <View style={styles.footerRow}>

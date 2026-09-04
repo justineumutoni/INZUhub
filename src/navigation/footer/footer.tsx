@@ -1,6 +1,6 @@
 import React from 'react';
-import SafeAreaView from 'react-native-safe-area-view';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -15,12 +15,12 @@ interface TabItem {
   id: string;
   name: 'Home' | 'Search' | 'Settings' | 'Message' | 'Account';
   iconName: React.ComponentProps<typeof Ionicons>['name'];
-  route?: keyof RootStackParamList;
+  route?: keyof RootStackParamList | string;
 }
 
 const TABS: TabItem[] = [
   { id: '1', name: 'Home', iconName: 'home', route: 'Home' },
-  { id: '2', name: 'Search', iconName: 'search-outline' },
+  { id: '2', name: 'Search', iconName: 'search-outline', route: 'SearchDetails' },
   { id: '3', name: 'Settings', iconName: 'options-outline', route: 'Settings' },
   { id: '4', name: 'Message', iconName: 'mail-outline' },
   { id: '5', name: 'Account', iconName: 'person-outline', route: 'Account' },
@@ -39,15 +39,11 @@ export function Footer({ activeTab = 'Home', onTabPress }: FooterProps) {
       onTabPress(tab.name);
       return;
     }
-    if (navigation && tab.route) {
-      if (tab.route === 'Home') {
-        navigation.navigate('Home');
-      } else if (tab.route === 'Settings') {
-        navigation.navigate('Settings');
-      } else if (tab.route === 'Account') {
-        navigation.navigate('Account');
-      }
+    if (!navigation || !tab.route) {
+      return;
     }
+
+    navigation.navigate(tab.route as never);
   };
 
   return (

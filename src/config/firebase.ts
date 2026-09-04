@@ -1,12 +1,13 @@
 /**
  * Firebase configuration — Expo / React Native compatible (Firebase v12+).
- *
- * Firebase v12+ uses the new modular SDK, which automatically detects React Native
- * and applies the correct persistence strategy when using getAuth().
  */
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeAuth, getAuth } from 'firebase/auth';
+// @ts-ignore - Exported by @firebase/auth React Native bundle
+import { getReactNativePersistence } from 'firebase/auth';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { getFirestore } from 'firebase/firestore';
+import { Platform } from 'react-native';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyCFPSBrYg0WnwN85NGyRzHKktEHVJz6Ugc',
@@ -18,13 +19,26 @@ const firebaseConfig = {
   measurementId: 'G-6N6ZVKXP6X',
 };
 
-// Initialize Firebase App
-const app = initializeApp(firebaseConfig);
+// Prevent re-initializing on Expo Fast Refresh hot reload
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Firebase Auth instance. React Native persistence is handled automatically by the SDK.
-export const auth = getAuth(app);
+// Firebase v12 Auth instance with AsyncStorage persistence for React Native
+export const auth = (() => {
+  if (Platform.OS === 'web') {
+    return getAuth(app);
+  }
 
-// Firestore database instance
+  try {
+    return initializeAuth(app, {
+      persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+    });
+  } catch {
+    // Return existing instance if already initialized during Fast Refresh
+    return getAuth(app);
+  }
+})();
+
 export const db = getFirestore(app);
 
 export default app;
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,12 +10,19 @@ import {
   Alert,
   Platform,
   Linking,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { signOut } from 'firebase/auth';
-import { auth } from '../../../config/firebase';
+import { Ionicons, Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { signOut, updateProfile } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../../../config/firebase';
+import { profileSchema, formatZodErrors } from '../../../config/validation';
 import { Footer } from '../../footer/footer';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, useIsFocused, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../Login/Login';
 import type { PropertyDetailData } from '../../../types/property';
@@ -176,14 +183,181 @@ const LIKED_PROPERTIES: AppliedPropertyItem[] = [
 
 export function Account() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const currentUser = auth.currentUser;
+  const route = useRoute<RouteProp<RootStackParamList, 'Account'>>();
+  const isFocused = useIsFocused();
 
-  const displayName = currentUser?.displayName || 'Courtney Henry';
-  const displayEmail = currentUser?.email || 'henry11@gmail.com';
-  const displayLocation = 'Texas';
-  const displayPhone = '(+9) 98125331510';
+  // Display State
+  const [displayName, setDisplayName] = useState('Courtney Henry');
+  const [displayEmail, setDisplayEmail] = useState('henry11@gmail.com');
+  const [displayLocation, setDisplayLocation] = useState('Texas');
+  const [displayPhone, setDisplayPhone] = useState('(+9) 98125331510');
+  const [displayStatus, setDisplayStatus] = useState('10 Applied  |  Archen');
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'applied' | 'liked'>('applied');
+
+  // Edit Modal State
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const [editStatus, setEditStatus] = useState('');
+  const [editPhotoURL, setEditPhotoURL] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+  const [saving, setSaving] = useState(false);
+  const [showImageSourcePicker, setShowImageSourcePicker] = useState(false);
+
+  // Load User Profile from Auth & Firestore
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) {
+      setDisplayName(user.displayName || 'Courtney Henry');
+      setDisplayEmail(user.email || 'henry11@gmail.com');
+      if (user.photoURL) {
+        setPhotoURL(user.photoURL);
+      }
+
+      getDoc(doc(db, 'users', user.uid))
+        .then((snapshot: any) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            if (data.fullName) setDisplayName(data.fullName);
+            if (data.email) setDisplayEmail(data.email);
+            if (data.phone) setDisplayPhone(data.phone);
+            if (data.location) setDisplayLocation(data.location);
+            if (data.status) setDisplayStatus(data.status);
+            if (data.photoURL) setPhotoURL(data.photoURL);
+          }
+        })
+        .catch((err: any) => console.log('Error loading user profile:', err));
+    }
+  }, [isFocused]);
+
+  // Open edit modal if autoEdit route param is passed
+  useEffect(() => {
+    if (route.params?.autoEdit) {
+      openEditModal();
+    }
+  }, [route.params?.autoEdit]);
+
+  const openEditModal = () => {
+    setEditName(displayName);
+    setEditPhone(displayPhone);
+    setEditLocation(displayLocation);
+    setEditStatus(displayStatus);
+    setEditPhotoURL(photoURL);
+    setFormErrors({});
+    setIsEditModalVisible(true);
+  };
+
+  // Pick Image from Gallery
+  const handlePickImage = async () => {
+    setShowImageSourcePicker(false);
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Denied', 'Permission to access your photos is required to update your profile photo.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]?.uri) {
+        setEditPhotoURL(result.assets[0].uri);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Could not pick image.');
+    }
+  };
+
+  // Take Photo with Camera
+  const handleTakePhoto = async () => {
+    setShowImageSourcePicker(false);
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Denied', 'Permission to access your camera is required.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]?.uri) {
+        setEditPhotoURL(result.assets[0].uri);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Could not launch camera.');
+    }
+  };
+
+  // Save Profile Changes with Zod validation
+  const handleSaveProfile = async () => {
+    const parseResult = profileSchema.safeParse({
+      fullName: editName,
+      phone: editPhone,
+      location: editLocation,
+      status: editStatus,
+    });
+
+    if (!parseResult.success) {
+      setFormErrors(formatZodErrors(parseResult.error));
+      return;
+    }
+
+    setFormErrors({});
+    setSaving(true);
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        // 1. Update Firebase Auth displayName & photoURL
+        await updateProfile(user, {
+          displayName: editName.trim(),
+          photoURL: editPhotoURL || null,
+        }).catch((e) => console.warn('Auth update error:', e));
+
+        // 2. Persist to Firestore
+        await setDoc(
+          doc(db, 'users', user.uid),
+          {
+            fullName: editName.trim(),
+            phone: editPhone.trim(),
+            location: editLocation.trim(),
+            status: editStatus.trim(),
+            photoURL: editPhotoURL || '',
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        ).catch((e: any) => console.warn('Firestore update error:', e));
+      }
+
+      // Update local state
+      setDisplayName(editName.trim());
+      setDisplayPhone(editPhone.trim());
+      setDisplayLocation(editLocation.trim());
+      setDisplayStatus(editStatus.trim());
+      setPhotoURL(editPhotoURL);
+      setIsEditModalVisible(false);
+
+      if (Platform.OS === 'web') {
+        window.alert('Profile updated successfully!');
+      } else {
+        Alert.alert('Success', 'Profile updated successfully!');
+      }
+    } catch (err: any) {
+      Alert.alert('Save Failed', err?.message || 'Could not update profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSignOut = () => {
     const performSignOut = async () => {
@@ -227,7 +401,7 @@ export function Account() {
   };
 
   const handleCall = () => {
-    const phoneNumber = '+998125331510';
+    const phoneNumber = displayPhone.replace(/[^0-9+]/g, '');
     if (Platform.OS === 'web') {
       window.alert(`Calling ${displayName}: ${displayPhone}`);
     } else {
@@ -245,14 +419,6 @@ export function Account() {
     }
   };
 
-  const handleEditProfile = () => {
-    if (Platform.OS === 'web') {
-      window.alert('Profile photo update options will be available soon.');
-    } else {
-      Alert.alert('Edit Profile', 'Profile photo update options will be available soon.');
-    }
-  };
-
   const handleSelectProperty = (item: AppliedPropertyItem) => {
     navigation.navigate('PropertyDetail', { property: item.detailData });
   };
@@ -262,6 +428,212 @@ export function Account() {
   return (
     <View style={styles.screen}>
       <StatusBar barStyle="light-content" backgroundColor="#2C56C0" />
+
+      {/* ── Edit Profile Modal ─────────────────────────────────────────── */}
+      <Modal
+        visible={isEditModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsEditModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.editModalContainer}
+        >
+          <View style={styles.editModalContent}>
+            {/* Modal Header */}
+            <View style={styles.editModalHeader}>
+              <Text style={styles.editModalTitle}>Edit Profile</Text>
+              <TouchableOpacity
+                onPress={() => setIsEditModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
+              {/* Profile Avatar Change */}
+              <View style={styles.editAvatarSection}>
+                <TouchableOpacity
+                  style={styles.editAvatarWrapper}
+                  activeOpacity={0.8}
+                  onPress={() => setShowImageSourcePicker(true)}
+                >
+                  {editPhotoURL ? (
+                    <Image source={{ uri: editPhotoURL }} style={styles.editAvatarImage} />
+                  ) : (
+                    <View style={[styles.editAvatarImage, styles.avatarPlaceholder]}>
+                      <Ionicons name="person" size={48} color="#94A3B8" />
+                    </View>
+                  )}
+                  <View style={styles.editAvatarCameraBadge}>
+                    <Ionicons name="camera" size={16} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShowImageSourcePicker(true)}
+                  style={{ marginTop: 8 }}
+                >
+                  <Text style={styles.changePhotoText}>Change Profile Photo</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Input Fields */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Full Name</Text>
+                <TextInput
+                  style={[styles.formInput, !!formErrors.fullName && styles.formInputError]}
+                  value={editName}
+                  onChangeText={(val) => {
+                    setEditName(val);
+                    if (formErrors.fullName) setFormErrors((prev) => ({ ...prev, fullName: '' }));
+                  }}
+                  placeholder="Your full name"
+                  placeholderTextColor="#9CA3AF"
+                />
+                {!!formErrors.fullName && (
+                  <Text style={styles.formErrorText}>{formErrors.fullName}</Text>
+                )}
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Phone Number</Text>
+                <TextInput
+                  style={[styles.formInput, !!formErrors.phone && styles.formInputError]}
+                  value={editPhone}
+                  onChangeText={(val) => {
+                    setEditPhone(val);
+                    if (formErrors.phone) setFormErrors((prev) => ({ ...prev, phone: '' }));
+                  }}
+                  placeholder="(+1) 555-0199"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="phone-pad"
+                />
+                {!!formErrors.phone && (
+                  <Text style={styles.formErrorText}>{formErrors.phone}</Text>
+                )}
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Location</Text>
+                <TextInput
+                  style={[styles.formInput, !!formErrors.location && styles.formInputError]}
+                  value={editLocation}
+                  onChangeText={(val) => {
+                    setEditLocation(val);
+                    if (formErrors.location) setFormErrors((prev) => ({ ...prev, location: '' }));
+                  }}
+                  placeholder="e.g. New York, USA"
+                  placeholderTextColor="#9CA3AF"
+                />
+                {!!formErrors.location && (
+                  <Text style={styles.formErrorText}>{formErrors.location}</Text>
+                )}
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Status / Bio</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={editStatus}
+                  onChangeText={setEditStatus}
+                  placeholder="e.g. 10 Applied | Archen"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+
+              {/* Save & Cancel Buttons */}
+              <View style={styles.editModalButtonsRow}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setIsEditModalVisible(false)}
+                  activeOpacity={0.7}
+                  disabled={saving}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.saveButton, saving && { opacity: 0.7 }]}
+                  onPress={handleSaveProfile}
+                  activeOpacity={0.85}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Save Changes</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Image Source Selector Modal ────────────────────────────────── */}
+      <Modal
+        visible={showImageSourcePicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowImageSourcePicker(false)}
+      >
+        <TouchableOpacity
+          style={styles.imagePickerBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowImageSourcePicker(false)}
+        >
+          <View style={styles.imagePickerSheet} onStartShouldSetResponder={() => true}>
+            <Text style={styles.imagePickerTitle}>Select Profile Photo</Text>
+
+            <TouchableOpacity
+              style={styles.imagePickerOption}
+              onPress={handleTakePhoto}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="camera-outline" size={22} color="#2C56C0" />
+              <Text style={styles.imagePickerOptionText}>Take Photo</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.imagePickerOption}
+              onPress={handlePickImage}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="images-outline" size={22} color="#2C56C0" />
+              <Text style={styles.imagePickerOptionText}>Choose from Gallery</Text>
+            </TouchableOpacity>
+
+            {editPhotoURL && (
+              <TouchableOpacity
+                style={styles.imagePickerOption}
+                onPress={() => {
+                  setEditPhotoURL(null);
+                  setShowImageSourcePicker(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="trash-outline" size={22} color="#EF4444" />
+                <Text style={[styles.imagePickerOptionText, { color: '#EF4444' }]}>Remove Photo</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={[styles.imagePickerOption, { borderBottomWidth: 0, marginTop: 4 }]}
+              onPress={() => setShowImageSourcePicker(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.imagePickerOptionText, { color: '#6B7280', fontWeight: '700', textAlign: 'center', width: '100%' }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <ScrollView
         style={styles.scrollView}
@@ -288,23 +660,27 @@ export function Account() {
         {/* ── Profile Avatar Section (Overlapping) ────────────────────────── */}
         <View style={styles.profileSection}>
           <View style={styles.avatarWrapper}>
-            <Image
-              source={{
-                // uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
-              }}
-              style={styles.avatar}
-            />
+            {photoURL ? (
+              <Image
+                source={{ uri: photoURL }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Ionicons name="person" size={50} color="#94A3B8" />
+              </View>
+            )}
             <TouchableOpacity
               style={styles.plusBadge}
               activeOpacity={0.8}
-              onPress={handleEditProfile}
+              onPress={openEditModal}
             >
-              <Ionicons name="add" size={18} color="#2C56C0" />
+              <Ionicons name="pencil" size={16} color="#2C56C0" />
             </TouchableOpacity>
           </View>
 
           {/* Subtitle / Status */}
-          <Text style={styles.userSubtitle}>10 Applied  |  Archen</Text>
+          <Text style={styles.userSubtitle}>{displayStatus}</Text>
         </View>
 
         {/* ── Action Buttons (Call Me / Message Me) ─────────────────────── */}
@@ -519,13 +895,18 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
     backgroundColor: '#E2E8F0',
   },
+  avatarPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+  },
   plusBadge: {
     position: 'absolute',
     bottom: 2,
     right: 2,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -761,5 +1142,176 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#6B7280',
     fontWeight: '500',
+  },
+
+  // ── Edit Profile Modal Styles ─────────────────────────────────────────────
+  editModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  editModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    maxHeight: '90%',
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  editModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  editAvatarSection: {
+    alignItems: 'center',
+    marginVertical: 18,
+  },
+  editAvatarWrapper: {
+    position: 'relative',
+  },
+  editAvatarImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    borderColor: '#2C56C0',
+    backgroundColor: '#E2E8F0',
+  },
+  editAvatarCameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#2C56C0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  changePhotoText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2C56C0',
+  },
+  formGroup: {
+    marginBottom: 14,
+  },
+  formLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  formInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    height: 48,
+    fontSize: 14,
+    color: '#1F2937',
+    backgroundColor: '#FAFAFC',
+  },
+  formInputError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  formErrorText: {
+    fontSize: 11,
+    color: '#EF4444',
+    marginTop: 4,
+    marginLeft: 2,
+    fontWeight: '500',
+  },
+  editModalButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  cancelButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  saveButton: {
+    flex: 2,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#2C56C0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#2C56C0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // ── Image Picker Sheet ───────────────────────────────────────────────────
+  imagePickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  imagePickerSheet: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  imagePickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  imagePickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 12,
+  },
+  imagePickerOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
   },
 });

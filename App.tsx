@@ -14,11 +14,31 @@ import { Property } from './src/navigation/main/home/property';
 import { PropertyDetail } from './src/navigation/main/home/details/PropertyDetail';
 import Setting from './src/navigation/main/setting/setting';
 import Account from './src/navigation/main/account/account';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ConfirmBooking } from './src/navigation/main/home/booking/ConfirmBooking';
+import { SearchDetails } from './src/navigation/main/home/searchProperty/searchProperty';
+import Notifications from './src/navigation/main/setting/notification/notification';
+import RecentlyViewed from './src/navigation/main/setting/recently/recentlyViewed';
+import Help from './src/navigation/main/setting/help/help';
+import About from './src/navigation/main/setting/about/about';
 
-import type { RootStackParamList } from './src/navigation/Login/Login';
+type AppStackParamList = {
+  Splash: undefined;
+  Login: undefined;
+  EmailVerification: undefined;
+  SignIn: undefined;
+  Home: undefined;
+  Settings: undefined;
+  Account: undefined;
+  PropertyDetail: undefined;
+  ConfirmBooking: undefined;
+  SearchDetails: undefined;
+  Notifications: undefined;
+  RecentlyViewed: undefined;
+  Help: undefined;
+  About: undefined;
+};
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const Stack = createNativeStackNavigator<AppStackParamList>();
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -44,7 +64,6 @@ export default function App() {
 
   return (
     <NavigationContainer>
-    <SafeAreaProvider>
       <Stack.Navigator
         screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
         // Logged-in users skip auth flow and go straight to Home
@@ -52,31 +71,52 @@ export default function App() {
       >
         {/* ── Auth Flow ──────────────────────────────────────────────────── */}
         {/* 1. Splash — auto-advances to Login after 2.8s */}
-        <Stack.Screen name="Splash" component={Splash} />
+        <Stack.Screen name="Splash" component={Splash as React.ComponentType<any>} />
 
         {/* 2. Login — Register / Create Account */}
-        <Stack.Screen name="Login" component={Register} />
+        <Stack.Screen name="Login" component={Register as React.ComponentType<any>} />
 
         {/* 3. EmailVerification — shown after account creation */}
-        <Stack.Screen name="EmailVerification" component={EmailVerification} />
+        <Stack.Screen
+          name="EmailVerification"
+          component={EmailVerification as React.ComponentType<any>}
+        />
 
         {/* 4. SignIn — Sign In to Continue (shows "Registered Successfully!" popup) */}
-        <Stack.Screen name="SignIn" component={SignIn} />
+        <Stack.Screen name="SignIn" component={SignIn as React.ComponentType<any>} />
 
         {/* ── App ─────────────────────────────────────────────────────────── */}
         {/* 5. Home — Property listing screen (post-login) */}
-        <Stack.Screen name="Home" component={Property} />
+        <Stack.Screen name="Home" component={Property as React.ComponentType<any>} />
 
         {/* 6. Settings Screen */}
-        <Stack.Screen name="Settings" component={Setting} />
+        <Stack.Screen name="Settings" component={Setting as React.ComponentType<any>} />
 
         {/* 7. Account Screen */}
-        <Stack.Screen name="Account" component={Account} />
+        <Stack.Screen name="Account" component={Account as React.ComponentType<any>} />
 
         {/* 8. PropertyDetail — Property details screen */}
-        <Stack.Screen name="PropertyDetail" component={PropertyDetail} />
+        <Stack.Screen
+          name="PropertyDetail"
+          component={PropertyDetail as React.ComponentType<any>}
+        />
+
+        {/* 9. ConfirmBooking — Booking confirmation screen */}
+        <Stack.Screen
+          name="ConfirmBooking"
+          component={ConfirmBooking as React.ComponentType<any>}
+        />
+        {/* 10. SearchDetails — Search results screen */}
+        <Stack.Screen name="SearchDetails" component={SearchDetails} />
+        {/* 11. Notifications — Notification screen */}
+        <Stack.Screen name="Notifications" component={Notifications} />
+        {/* 12. RecentlyViewed — Recently viewed screen */}
+        <Stack.Screen name="RecentlyViewed" component={RecentlyViewed} />
+        {/* 13. Help — Help screen */}
+        <Stack.Screen name="Help" component={Help} />
+        {/* 14. About — About screen */}
+        <Stack.Screen name="About" component={About} />
       </Stack.Navigator>
-    </SafeAreaProvider>
     </NavigationContainer>
   );
 }

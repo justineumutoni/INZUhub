@@ -62,3 +62,16 @@ export interface PropertyDetailData {
   description?: string;
   facilities?: string[];
 }
+
+
+// handle confrimation data 
+
+export type ConfirmBookingData = {
+  propertyId: string;
+  title: string;
+  subLocation: string;
+  heroImage: any;
+  rent: number;
+  serviceFee: number;
+  total?: number; // optional — only needed if you want to override the auto-calculated total
+};

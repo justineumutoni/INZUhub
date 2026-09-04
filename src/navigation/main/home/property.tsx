@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import SafeAreaView from 'react-native-safe-area-view';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -8,26 +7,34 @@ import {
   TouchableOpacity, 
   ScrollView, 
   Alert,
-
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ItemData, PropertyDetailData } from '../../../types/property';
-import { RowCard, propertyData } from './rowcard';
-import { Location, locationData } from './location';
-import { Update, updateData } from './update';
+import { RowCard } from './rowcard';
+import { Location } from './location';
+import { Update } from './update';
+import { 
+  getProperties, 
+  FEATURED_LOCATIONS, 
+  propertyToRowCard, 
+  propertyToUpdateItem 
+} from '../../../services/properties';
 import { Navbar } from '../../navbar/Navbar';
 import { Footer } from '../../footer/footer';
 import type { RootStackParamList } from '../../Login/Login';
 
 const CATEGORIES: ItemData[] = [
   { id: '1', title: 'All' },
-  { id: '2', title: 'Flat' },
-  { id: '3', title: 'Rooms' },
-  { id: '4', title: 'Hall' },
-  { id: '5', title: 'Rents' },
-  { id: '6', title: 'Houses' },
-  { id: '7', title: 'Small Houses' },
+  { id: '2', title: 'Villa' },
+  { id: '3', title: 'Flat' },
+  { id: '4', title: 'Studio' },
+  { id: '5', title: 'Penthouse' },
+  { id: '6', title: 'House' },
+  { id: '7', title: 'Rooms' },
 ];
 
 interface PropertyProps {
@@ -36,7 +43,37 @@ interface PropertyProps {
 
 export function Property({ onSelectProperty }: PropertyProps) {
   const [activeCategoryId, setActiveCategoryId] = useState<string>('1');
+  const [properties, setProperties] = useState<PropertyDetailData[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const isFocused = useIsFocused();
+
+  const selectedCategory = CATEGORIES.find((c) => c.id === activeCategoryId)?.title || 'All';
+
+  // Load properties from service/Firestore
+  const loadProperties = useCallback(async (isPullRefresh: boolean = false) => {
+    if (isPullRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const data = await getProperties(selectedCategory);
+      setProperties(data);
+    } catch (err) {
+      console.warn('Error loading properties:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    loadProperties();
+  }, [loadProperties, isFocused]);
 
   const handleSelectProperty = (property: PropertyDetailData) => {
     if (onSelectProperty) {
@@ -71,6 +108,14 @@ export function Property({ onSelectProperty }: PropertyProps) {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadProperties(true)}
+            colors={['#2C56C0']}
+            tintColor="#2C56C0"
+          />
+        }
       >
         {/* Top Navbar */}
         <Navbar />
@@ -87,117 +132,98 @@ export function Property({ onSelectProperty }: PropertyProps) {
           />
         </View>
 
-        {/* Section 1: Recently Added Properties */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recently Added Properties</Text>
-            <TouchableOpacity 
-              onPress={() => Alert.alert('View All', 'Showing all available properties')}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
+        {loading ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="large" color="#2C56C0" />
+            <Text style={{ marginTop: 10, fontSize: 13, color: '#6B7280', fontWeight: '500' }}>
+              Loading listings...
+            </Text>
           </View>
+        ) : (
+          <>
+            {/* Section 1: Recently Added Properties */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Recently Added Properties</Text>
+                <TouchableOpacity 
+                  onPress={() => Alert.alert('All Properties', `Displaying ${properties.length} verified listings.`)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={styles.viewAllText}>View All ({properties.length})</Text>
+                </TouchableOpacity>
+              </View>
 
-          {/* Property Cards List */}
-          <View style={styles.propertyList}>
-            {propertyData.map((item) => (
-              <RowCard
-                key={item.idName}
-                property={item}
-                onPress={() => {
-                  handleSelectProperty({
-                    id: item.idName,
-                    title: item.propertyName,
-                    price: `$${item.price.toLocaleString()}`,
-                    period: '/ per month',
-                    distanceFrom: '1.2 km from City Center',
-                    subLocation: item.locationName,
-                    status: item.propertystatus === 'available' ? 'Available' : item.propertystatus,
-                    ownedBy: 'InzuHub Host',
-                    appliedCount: '2 Applied',
-                    viewsCount: '15 Views',
-                    heroImage: item.imageSource,
-                  });
-                }}
-              />
-            ))}
-          </View>
-        </View>
+              {/* Property Cards List */}
+              <View style={styles.propertyList}>
+                {properties.slice(0, 5).map((prop, idx) => {
+                  const cardItem = propertyToRowCard(prop, idx);
+                  return (
+                    <RowCard
+                      key={prop.id || `prop-${idx}`}
+                      property={cardItem}
+                      onPress={() => handleSelectProperty(prop)}
+                    />
+                  );
+                })}
+              </View>
+            </View>
 
-        {/* Section 2: Locations 2-Column Grid */}
-        <View style={styles.locationsSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Locations</Text>
-            <TouchableOpacity 
-              onPress={() => Alert.alert('View All', 'Showing all locations')}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
-          </View>
+            {/* Section 2: Locations 2-Column Grid */}
+            <View style={styles.locationsSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Featured Locations</Text>
+                <TouchableOpacity 
+                  onPress={() => Alert.alert('Locations', 'Explore top neighborhoods in Kigali and beyond.')}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={styles.viewAllText}>View All</Text>
+                </TouchableOpacity>
+              </View>
 
-          <View style={styles.locationsGrid}>
-            {locationData.map((item) => (
-              <Location 
-                key={item.locationId}
-                location={item}
-                onPress={() => {
-                  handleSelectProperty({
-                    id: item.locationId,
-                    title: `${item.locationName} Residence`,
-                    price: 'Rs. 8000',
-                    period: '/ per month',
-                    distanceFrom: `Located at ${item.locationName}`,
-                    subLocation: item.locationName,
-                    status: 'Available',
-                    ownedBy: 'KIA Partner',
-                    appliedCount: '5 Applied',
-                    viewsCount: '48 Views',
-                    heroImage: item.locationImage,
-                  });
-                }}
-              />
-            ))}
-          </View>
-        </View>
+              <View style={styles.locationsGrid}>
+                {FEATURED_LOCATIONS.map((loc) => (
+                  <Location 
+                    key={loc.locationId}
+                    location={loc}
+                    onPress={() => {
+                      const matched = properties.find((p) =>
+                        p.location?.toLowerCase().includes(loc.locationName.toLowerCase()) ||
+                        p.subLocation?.toLowerCase().includes(loc.locationName.toLowerCase())
+                      ) || properties[0];
+                      if (matched) handleSelectProperty(matched);
+                    }}
+                  />
+                ))}
+              </View>
+            </View>
 
-        {/* Section 3: Recent Updates Vertical List */}
-        <View style={styles.updatesSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Updates</Text>
-            <TouchableOpacity 
-              onPress={() => Alert.alert('See All', 'Showing all recent updates')}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
+            {/* Section 3: Recent Updates Vertical List */}
+            <View style={styles.updatesSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Recent Updates</Text>
+                <TouchableOpacity 
+                  onPress={() => Alert.alert('Updates', 'All recent rental and property updates.')}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={styles.seeAllText}>See All</Text>
+                </TouchableOpacity>
+              </View>
 
-          <View style={styles.updatesList}>
-            {updateData.map((item) => (
-              <Update 
-                key={item.updateId}
-                update={item}
-                onPress={() => {
-                  handleSelectProperty({
-                    id: item.updateId,
-                    title: item.title,
-                    price: item.price,
-                    period: item.period || '/ per month',
-                    distanceFrom: '1.2 km from Hospital',
-                    subLocation: item.updateLocation,
-                    status: item.propertystatus,
-                    ownedBy: 'KIA',
-                    appliedCount: item.appliedCount || '0 Applied',
-                    viewsCount: item.viewsCount || '19 Views',
-                    heroImage: item.updateImage,
-                  });
-                }}
-              />
-            ))}
-          </View>
-        </View>
+              <View style={styles.updatesList}>
+                {properties.map((prop, idx) => {
+                  const updateItem = propertyToUpdateItem(prop, idx);
+                  return (
+                    <Update 
+                      key={`update-${prop.id || idx}`}
+                      update={updateItem}
+                      onPress={() => handleSelectProperty(prop)}
+                    />
+                  );
+                })}
+              </View>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Bottom Navigation Bar */}
