@@ -20,6 +20,7 @@ import Notifications from './src/navigation/main/setting/notification/notificati
 import RecentlyViewed from './src/navigation/main/setting/recently/recentlyViewed';
 import Help from './src/navigation/main/setting/help/help';
 import About from './src/navigation/main/setting/about/about';
+import Message from './src/navigation/main/message/Message';
 
 type AppStackParamList = {
   Splash: undefined;
@@ -36,6 +37,7 @@ type AppStackParamList = {
   RecentlyViewed: undefined;
   Help: undefined;
   About: undefined;
+  Messages: undefined;
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -64,6 +66,7 @@ export default function App() {
 
   return (
     <NavigationContainer>
+    
       <Stack.Navigator
         screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
         // Logged-in users skip auth flow and go straight to Home
@@ -116,6 +119,8 @@ export default function App() {
         <Stack.Screen name="Help" component={Help} />
         {/* 14. About — About screen */}
         <Stack.Screen name="About" component={About} />
+        {/* 15. Messages — landlord conversation screen */}
+        <Stack.Screen name="Messages" component={Message as React.ComponentType<any>} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -126,6 +131,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#ffffff',
   },
 });

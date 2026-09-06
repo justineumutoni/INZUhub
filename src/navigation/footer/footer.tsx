@@ -22,7 +22,7 @@ const TABS: TabItem[] = [
   { id: '1', name: 'Home', iconName: 'home', route: 'Home' },
   { id: '2', name: 'Search', iconName: 'search-outline', route: 'SearchDetails' },
   { id: '3', name: 'Settings', iconName: 'options-outline', route: 'Settings' },
-  { id: '4', name: 'Message', iconName: 'mail-outline' },
+  { id: '4', name: 'Message', iconName: 'mail-outline', route: 'Messages' },
   { id: '5', name: 'Account', iconName: 'person-outline', route: 'Account' },
 ];
 

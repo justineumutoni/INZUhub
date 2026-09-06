@@ -2,6 +2,7 @@
   "expo": {
     "name": "InzuHub",
     "slug": "InzuHub",
+    "scheme": "inzuhub",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -23,7 +24,8 @@
           "photosPermission": "Allow InzuHub to access your photos to set your profile picture.",
           "cameraPermission": "Allow InzuHub to access your camera to take a profile photo."
         }
-      ]
+      ],
+      "expo-web-browser"
     ]
   }
 }

@@ -9,8 +9,6 @@ import {
   getDocs, 
   doc, 
   setDoc, 
-  query, 
-  limit, 
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -19,11 +17,40 @@ import {
   SAMPLE_REAL_ESTATE_LISTINGS, 
   fetchApifyDatasetItems, 
   fetchGooglePlacesDatasetItems,
-  APIFY_DEFAULT_DATASET_ID,
-  APIFY_DEFAULT_TOKEN,
 } from './apify';
 
 const PROPERTIES_COLLECTION = 'properties';
+const FIRESTORE_READ_TIMEOUT_MS = 5000;
+const BOOKING_WRITE_TIMEOUT_MS = 10000;
+let propertiesCache: PropertyDetailData[] | null = null;
+
+function filterProperties(
+  properties: PropertyDetailData[],
+  category?: string,
+  searchQuery?: string,
+): PropertyDetailData[] {
+  let filtered = properties;
+
+  if (category && category !== 'All') {
+    const lowerCat = category.toLowerCase();
+    filtered = filtered.filter((item) =>
+      item.title.toLowerCase().includes(lowerCat) ||
+      (item.description && item.description.toLowerCase().includes(lowerCat)) ||
+      (item.facilities && item.facilities.some((f) => f.toLowerCase().includes(lowerCat)))
+    );
+  }
+
+  if (searchQuery && searchQuery.trim().length > 0) {
+    const qLower = searchQuery.trim().toLowerCase();
+    filtered = filtered.filter((item) =>
+      item.title.toLowerCase().includes(qLower) ||
+      (item.location && item.location.toLowerCase().includes(qLower)) ||
+      (item.subLocation && item.subLocation.toLowerCase().includes(qLower))
+    );
+  }
+
+  return filtered;
+}
 
 /**
  * Converts a PropertyDetailData into a RowCardProps item for horizontal lists
@@ -97,10 +124,18 @@ export async function getProperties(
   category?: string,
   searchQuery?: string
 ): Promise<PropertyDetailData[]> {
+  if (propertiesCache) {
+    return filterProperties(propertiesCache, category, searchQuery);
+  }
+
   try {
     const propertiesRef = collection(db, PROPERTIES_COLLECTION);
-    const q = query(propertiesRef, limit(20));
-    const snapshot = await getDocs(q);
+    const snapshot = await Promise.race([
+      getDocs(propertiesRef),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Firestore properties request timed out')), FIRESTORE_READ_TIMEOUT_MS);
+      }),
+    ]);
 
     let list: PropertyDetailData[] = [];
 
@@ -120,6 +155,7 @@ export async function getProperties(
           appliedCount: data.appliedCount || '1 Applied',
           viewsCount: data.viewsCount || '20 Views',
           ownerName: data.ownerName || 'Property Owner',
+          ownerPhone: data.ownerPhone || data.phone,
           ownerRole: data.ownerRole || 'Host',
           ownerAvatar: data.ownerAvatarUrl ? { uri: data.ownerAvatarUrl } : undefined,
           heroImage: data.heroImageUrl ? { uri: data.heroImageUrl } : undefined,
@@ -133,10 +169,15 @@ export async function getProperties(
       });
     }
 
-    // If Firestore is empty, fetch live listings from Apify Google Places dataset
+    // If Firestore is empty, use the configured Apify dataset before local fallback.
     if (list.length === 0) {
       try {
-        list = await fetchGooglePlacesDatasetItems(APIFY_DEFAULT_DATASET_ID, APIFY_DEFAULT_TOKEN);
+        list = await Promise.race([
+          fetchGooglePlacesDatasetItems(),
+          new Promise<PropertyDetailData[]>((resolve) => {
+            setTimeout(() => resolve(SAMPLE_REAL_ESTATE_LISTINGS), FIRESTORE_READ_TIMEOUT_MS);
+          }),
+        ]);
       } catch {
         list = SAMPLE_REAL_ESTATE_LISTINGS;
       }
@@ -144,30 +185,34 @@ export async function getProperties(
       seedFirestoreWithSampleProperties().catch(() => {});
     }
 
-    // Category filter
-    if (category && category !== 'All') {
-      const lowerCat = category.toLowerCase();
-      list = list.filter((item) =>
-        item.title.toLowerCase().includes(lowerCat) ||
-        (item.description && item.description.toLowerCase().includes(lowerCat)) ||
-        (item.facilities && item.facilities.some((f) => f.toLowerCase().includes(lowerCat)))
-      );
-    }
-
-    // Search query filter
-    if (searchQuery && searchQuery.trim().length > 0) {
-      const qLower = searchQuery.trim().toLowerCase();
-      list = list.filter((item) =>
-        item.title.toLowerCase().includes(qLower) ||
-        (item.location && item.location.toLowerCase().includes(qLower)) ||
-        (item.subLocation && item.subLocation.toLowerCase().includes(qLower))
-      );
-    }
-
-    return list;
+    propertiesCache = list;
+    return filterProperties(list, category, searchQuery);
   } catch (error) {
     console.warn('Firestore getProperties error, using sample listings:', error);
-    return SAMPLE_REAL_ESTATE_LISTINGS;
+    propertiesCache = SAMPLE_REAL_ESTATE_LISTINGS;
+    return filterProperties(propertiesCache, category, searchQuery);
+  }
+}
+
+export async function markPropertyAsBooked(propertyId: string): Promise<void> {
+  if (!propertyId) {
+    throw new Error('This property has no valid ID for booking.');
+  }
+
+  await Promise.race([
+    setDoc(doc(db, PROPERTIES_COLLECTION, propertyId), {
+      status: 'Booked',
+      bookedAt: serverTimestamp(),
+    }, { merge: true }),
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Booking request timed out. Please check your connection and try again.')), BOOKING_WRITE_TIMEOUT_MS);
+    }),
+  ]);
+
+  if (propertiesCache) {
+    propertiesCache = propertiesCache.map((property) =>
+      property.id === propertyId ? { ...property, status: 'Booked' } : property
+    );
   }
 }
 
@@ -204,6 +249,7 @@ export async function seedFirestoreWithSampleProperties(): Promise<number> {
         appliedCount: prop.appliedCount,
         viewsCount: prop.viewsCount,
         ownerName: prop.ownerName,
+        ownerPhone: prop.ownerPhone,
         ownerRole: prop.ownerRole,
         ownerAvatarUrl: avatarUrl,
         heroImageUrl: heroUrl,
@@ -261,6 +307,7 @@ export async function syncApifyDatasetToFirestore(
         appliedCount: prop.appliedCount,
         viewsCount: prop.viewsCount,
         ownerName: prop.ownerName,
+        ownerPhone: prop.ownerPhone,
         ownerRole: prop.ownerRole,
         ownerAvatarUrl: avatarUrl,
         heroImageUrl: heroUrl,

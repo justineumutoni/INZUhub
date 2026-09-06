@@ -54,6 +54,7 @@ export interface PropertyDetailData {
   appliedCount?: string | number;
   viewsCount?: string | number;
   ownerName?: string;
+  ownerPhone?: string;
   ownerRole?: string;
   ownerAvatar?: ImageSourcePropType | { uri: string };
   heroImage?: ImageSourcePropType;

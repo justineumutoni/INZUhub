@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,12 +8,15 @@ import {
   ScrollView,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { Footer } from '../../../footer/footer';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../Login/Login';
+import { getProperties } from '../../../../services/properties';
+import type { PropertyDetailData } from '../../../../types/property';
 
 interface Listing {
   id: string;
@@ -22,7 +25,9 @@ interface Listing {
   location: string;
   address: string;
   available: boolean;
+  status: string;
   imageUri?: string;
+  detailData: PropertyDetailData;
 }
 
 interface ListingCardProps {
@@ -46,8 +51,10 @@ function ListingCard({ item, onPress, onDelete }: ListingCardProps) {
         <View style={styles.cardTopRow}>
           <Text style={styles.cardPrice}>{item.price}</Text>
           <View style={styles.availableRow}>
-            <View style={styles.availableDot} />
-            <Text style={styles.availableText}>Available</Text>
+            <View style={[styles.availableDot, !item.available && styles.unavailableDot]} />
+            <Text style={[styles.availableText, !item.available && styles.unavailableText]}>
+              {item.status}
+            </Text>
           </View>
         </View>
         <Text style={styles.cardTitle}>{item.bhk}</Text>
@@ -62,45 +69,51 @@ function ListingCard({ item, onPress, onDelete }: ListingCardProps) {
 
 export default function RecentlyViewed() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // TODO: replace with real data (API / local storage / context)
-  const listings: Listing[] = [
-    {
-      id: '1',
-      price: 'Rp.1000k',
-      bhk: '1 BHK at Jakarta',
-      location: 'Jakarta',
-      address: 'Jaksel, Jln Samiri',
-      available: true,
-    },
-    {
-      id: '2',
-      price: 'Rp.1000k',
-      bhk: '1 BHK at Jakarta',
-      location: 'Jakarta',
-      address: 'Jaksel, Jln Samiri',
-      available: true,
-    },
-    {
-      id: '3',
-      price: 'Rp.1000k',
-      bhk: '1 BHK at Jakarta',
-      location: 'Jakarta',
-      address: 'Jaksel, Jln Samiri',
-      available: true,
-    },
-    {
-      id: '4',
-      price: 'Rp.1000k',
-      bhk: '1 BHK at Jakarta',
-      location: 'Jakarta',
-      address: 'Jaksel, Jln Samiri',
-      available: true,
-    },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadListings = async () => {
+      try {
+        const properties = await getProperties('All');
+        if (isMounted) {
+          setListings(properties.map((property, index) => {
+            const status = property.status || 'Available';
+            return {
+              id: property.id || `property-${index}`,
+              price: property.price,
+              bhk: property.title,
+              location: property.location || 'Kigali, Rwanda',
+              address: property.subLocation || property.location || 'Kigali, Rwanda',
+              available: status.toLowerCase() === 'available',
+              status,
+              imageUri: property.heroImage && typeof property.heroImage === 'object' && 'uri' in property.heroImage
+                ? property.heroImage.uri
+                : undefined,
+              detailData: property,
+            };
+          }));
+        }
+      } catch (error) {
+        console.warn('Error loading recently viewed properties:', error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadListings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleDelete = (id: string) => {
-    // TODO: wire up swipe-to-delete / removal from recently viewed
+    setListings((currentListings) => currentListings.filter((listing) => listing.id !== id));
   };
 
   const handleUpgrade = () => {
@@ -135,16 +148,18 @@ export default function RecentlyViewed() {
 
         {/* ── Listings ──────────────────────────────────────────────────── */}
         <View style={styles.listingList}>
-          {listings.map((item) => (
-            <ListingCard
-              key={item.id}
-              item={item}
-              onPress={() => {
-                // TODO: navigate('ListingDetail', { id: item.id })
-              }}
-              onDelete={() => handleDelete(item.id)}
-            />
-          ))}
+          {loading ? (
+            <ActivityIndicator size="large" color="#2C56C0" />
+          ) : (
+            listings.map((item) => (
+              <ListingCard
+                key={item.id}
+                item={item}
+                onPress={() => navigation.navigate('PropertyDetail', { property: item.detailData })}
+                onDelete={() => handleDelete(item.id)}
+              />
+            ))
+          )}
         </View>
 
         {/* ── Premium Upsell Card ───────────────────────────────────────── */}
@@ -266,10 +281,16 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: '#22C55E',
   },
+  unavailableDot: {
+    backgroundColor: '#F97316',
+  },
   availableText: {
     fontSize: 11,
     color: '#22C55E',
     fontWeight: '600',
+  },
+  unavailableText: {
+    color: '#F97316',
   },
   cardTitle: {
     fontSize: 13,

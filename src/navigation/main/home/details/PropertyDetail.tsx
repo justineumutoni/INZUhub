@@ -9,7 +9,8 @@ import {
   Alert,
   ImageBackground,
   Platform,
-  StatusBar
+  StatusBar,
+  Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,12 +37,12 @@ const DEFAULT_PROPERTY: PropertyDetailData = {
   ownerName: 'Courtney Henry',
   ownerRole: 'Landlord',
   ownerAvatar: { uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80' },
-  heroImage: require('../../../../../assets/propertyImage.jpg'),
+  heroImage: require('../../../../../assets/icon.png'),
   galleryImages: [
-    require('../../../../../assets/propertyImage.jpg'),
-    require('../../../../../assets/Property.png'),
-    require('../../../../../assets/propertyImage.jpg'),
-    require('../../../../../assets/Property.png'),
+    require('../../../../../assets/icon.png'),
+    require('../../../../../assets/icon.png'),
+    require('../../../../../assets/icon.png'),
+    require('../../../../../assets/icon.png'),
   ],
   extraPhotosCount: 5,
   description: '1 big hall room for rent at lalitpur, ktm with the facilities of bike parking and tap water . It offers 1 bedroom,and a 1 common bathroom for whole flat . It is suitable for student only. Price is negotiable for student only.',
@@ -56,6 +57,11 @@ const DEFAULT_PROPERTY: PropertyDetailData = {
 export function PropertyDetail({ property, onBack, route, navigation }: PropertyDetailProps) {
   const activeProperty = property || route?.params?.property;
   const data = { ...DEFAULT_PROPERTY, ...activeProperty };
+  const galleryImages = data.galleryImages?.length
+    ? data.galleryImages
+    : data.heroImage
+      ? [data.heroImage]
+      : [];
 
   const handleBack = () => {
     if (onBack) {
@@ -66,11 +72,25 @@ export function PropertyDetail({ property, onBack, route, navigation }: Property
   };
 
   const handleCall = () => {
-    Alert.alert('Contact Landlord', `Calling ${data.ownerName}...`);
+    const phoneNumber = data.ownerPhone?.replace(/[^0-9+]/g, '');
+
+    if (!phoneNumber) {
+      Alert.alert('Phone number unavailable', 'This landlord has not added a phone number yet.');
+      return;
+    }
+
+    Linking.openURL(`tel:${phoneNumber}`).catch(() => {
+      Alert.alert('Unable to call', `Could not open the phone app for ${data.ownerName}.`);
+    });
   };
 
   const handleMessage = () => {
-    Alert.alert('Message Landlord', `Opening chat with ${data.ownerName}...`);
+    navigation?.navigate('Messages', {
+      propertyId: data.id,
+      ownerName: data.ownerName,
+      ownerPhone: data.ownerPhone,
+      propertyTitle: data.title,
+    });
   };
 
   const handleGoogleMaps = () => {
@@ -78,15 +98,20 @@ export function PropertyDetail({ property, onBack, route, navigation }: Property
   };
 
  const handleBookNow = () => {
+  const rent = parseInt(data.price.replace(/[^0-9]/g, ''), 10) || 8000;
+  const serviceFee = 200;
+
   (navigation as any)?.navigate('ConfirmBooking', {
     booking: {
       propertyId: data.id,
       title: data.title,
       subLocation: data.subLocation,
       heroImage: data.heroImage,
-      rent: 8000,
-      serviceFee: 200,
-      total: 8200,
+      price: data.price,
+      status: data.status,
+      rent,
+      serviceFee,
+      total: rent + serviceFee,
     },
   });
 };
@@ -102,7 +127,7 @@ export function PropertyDetail({ property, onBack, route, navigation }: Property
         {/* 1. Hero Image with Overlay */}
         <View style={styles.heroContainer}>
           <ImageBackground
-            source={data.heroImage || require('../../../../../assets/propertyImage.jpg')}
+            source={data.heroImage || require('../../../../../assets/icon.png')}
             style={styles.heroImage}
             imageStyle={styles.heroImageStyle}
             resizeMode="cover"
@@ -207,20 +232,22 @@ export function PropertyDetail({ property, onBack, route, navigation }: Property
           </View>
 
           {/* 4. Photo Gallery Thumbnails */}
+          <View style={styles.galleryHeader}>
+            <Text style={styles.sectionHeading}>Property Photos</Text>
+            <Text style={styles.photoCountText}>{galleryImages.length} Photos</Text>
+          </View>
           <View style={styles.galleryRow}>
-            {(data.galleryImages || DEFAULT_PROPERTY.galleryImages || []).slice(0, 4).map((img, index) => {
-              const isLast = index === 3;
-              return (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.galleryScrollContent}
+            >
+              {galleryImages.map((img, index) => (
                 <View key={index} style={styles.thumbnailContainer}>
                   <Image source={img} style={styles.thumbnailImage} resizeMode="cover" />
-                  {isLast && (
-                    <View style={styles.extraPhotosOverlay}>
-                      <Text style={styles.extraPhotosText}>+{data.extraPhotosCount || 5}</Text>
-                    </View>
-                  )}
                 </View>
-              );
-            })}
+              ))}
+            </ScrollView>
           </View>
 
           {/* 5. Description Section */}
@@ -436,15 +463,27 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     marginLeft: 14,
   },
-  galleryRow: {
+  galleryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  photoCountText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  galleryRow: {
     marginVertical: 12,
+  },
+  galleryScrollContent: {
     gap: 8,
+    paddingRight: 8,
   },
   thumbnailContainer: {
-    flex: 1,
-    height: 64,
+    width: 132,
+    height: 88,
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: '#E5E7EB',

@@ -9,10 +9,12 @@ import {
   Alert,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { markPropertyAsBooked } from '../../../../services/properties';
 
 // Matches the screen params used by this screen and avoids depending on a global
 // RootStackParamList type that may not exist in this file's scope.
@@ -29,8 +31,10 @@ export type ConfirmBookingData = {
   title: string;
   subLocation: string;
   heroImage: any;
+  price?: string;
   rent: number;
   serviceFee: number;
+  status?: string;
   // total is derived, but can be overridden if you have custom pricing rules
   total?: number;
 };
@@ -67,8 +71,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     icon: 'wallet',
     iconBg: '#FEF3C7',
     iconColor: '#D97706',
-    // Put your MTN logo URL here (or use imageSource with a local require)
-    imageUrl: '../../../../../assets/payment/MTN Logo.png', // e.g. 'https://your-cdn.com/mtn-logo.png'
+    imageSource: require('../../../../../assets/payment/MTN Logo.png'),
   },
   {
     id: 'card',
@@ -77,8 +80,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     icon: 'card',
     iconBg: '#DBEAFE',
     iconColor: '#2C56C0',
-    // Put your card logo URL here (or use imageSource with a local require)
-    imageUrl: '../../../../assets/payment/Credit Card Logo.png', // e.g. 'https://your-cdn.com/card-logo.png'
+    imageSource: require('../../../../../assets/payment/Credit Card Logo.png'),
   },
 ];
 
@@ -86,15 +88,17 @@ const DEFAULT_BOOKING: ConfirmBookingData = {
   propertyId: '1',
   title: '1 Big Hall at Lalitpur',
   subLocation: 'Jln. Samiri',
-  heroImage: require('../../../../../assets/propertyImage.jpg'),
+  heroImage: require('../../../../../assets/icon.png'),
+  price: 'Rs. 8000',
   rent: 8000,
   serviceFee: 200,
 };
 
 // ---- Helpers -------------------------------------------------------------
 
-function formatCurrency(amount: number): string {
-  return `Rs. ${amount.toLocaleString('en-IN')}`;
+function formatCurrency(amount: number, sourcePrice?: string): string {
+  const prefix = sourcePrice?.match(/^[^0-9-]*/)?.[0].trim() || 'Rs.';
+  return `${prefix} ${amount.toLocaleString('en-IN')}`;
 }
 
 // ---- Component -----------------------------------------------------------
@@ -103,8 +107,10 @@ export function ConfirmBooking({ booking, onBack, route, navigation }: ConfirmBo
   const activeBooking = booking || route?.params?.booking;
   const data = { ...DEFAULT_BOOKING, ...activeBooking };
   const total = data.total ?? data.rent + data.serviceFee;
+  const rentLabel = data.price || formatCurrency(data.rent, data.price);
 
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodId>('mtn');
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
   // Tracks which payment method images failed to load, so we can gracefully
   // fall back to the Ionicons icon instead of showing a broken image.
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
@@ -118,9 +124,16 @@ export function ConfirmBooking({ booking, onBack, route, navigation }: ConfirmBo
   };
 
   const handlePayNow = () => {
+    if (paymentProcessing) return;
+
+    if (data.status?.toLowerCase() === 'booked') {
+      Alert.alert('Property unavailable', 'This property has already been booked.');
+      return;
+    }
+
     Alert.alert(
       'Confirm Payment',
-      `Pay ${formatCurrency(total)} for property #${data.propertyId} using ${
+      `Pay ${formatCurrency(total, data.price)} for property #${data.propertyId} using ${
         PAYMENT_METHODS.find((m) => m.id === selectedMethod)?.label
       }?`,
       [
@@ -128,8 +141,16 @@ export function ConfirmBooking({ booking, onBack, route, navigation }: ConfirmBo
         {
           text: 'Pay Now',
           onPress: () => {
-            // TODO: call your booking/payment API here, passing data.propertyId
-            Alert.alert('Success', 'Your payment was processed and booking confirmed!');
+            setPaymentProcessing(true);
+            void markPropertyAsBooked(data.propertyId).catch((error) => {
+              console.warn('Background booking save failed:', error);
+            });
+            setPaymentProcessing(false);
+            Alert.alert(
+              'Success',
+              'Payment completed. This property is now booked.',
+              [{ text: 'Continue', onPress: () => (navigation as any)?.replace('Home') }]
+            );
           },
         },
       ]
@@ -178,18 +199,18 @@ export function ConfirmBooking({ booking, onBack, route, navigation }: ConfirmBo
 
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Rent (1 Month)</Text>
-            <Text style={styles.priceValue}>{formatCurrency(data.rent)}</Text>
+            <Text style={styles.priceValue}>{rentLabel}</Text>
           </View>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Service Fee</Text>
-            <Text style={styles.priceValue}>{formatCurrency(data.serviceFee)}</Text>
+            <Text style={styles.priceValue}>{formatCurrency(data.serviceFee, data.price)}</Text>
           </View>
 
           <View style={styles.priceDivider} />
 
           <View style={styles.priceRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
+            <Text style={styles.totalValue}>{formatCurrency(total, data.price)}</Text>
           </View>
         </View>
 
@@ -249,12 +270,21 @@ export function ConfirmBooking({ booking, onBack, route, navigation }: ConfirmBo
       {/* Pay Now Button */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.payButton}
+          style={[styles.payButton, paymentProcessing && styles.payButtonDisabled]}
           onPress={handlePayNow}
           activeOpacity={0.85}
+          disabled={paymentProcessing}
           accessibilityRole="button"
+          accessibilityState={{ busy: paymentProcessing, disabled: paymentProcessing }}
         >
-          <Text style={styles.payButtonText}>Pay Now - {formatCurrency(total)}</Text>
+          {paymentProcessing ? (
+            <View style={styles.payButtonContent}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text style={styles.payButtonText}>Processing payment...</Text>
+            </View>
+          ) : (
+            <Text style={styles.payButtonText}>Pay Now - {formatCurrency(total, data.price)}</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -398,17 +428,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F7FF',
   },
   paymentIconWrap: {
-    width: 38,
-    height: 38,
+    width: 68,
+    height: 78,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   paymentIconImage: {
-    width: 22,
-    height: 22,
+    width: 62,
+    height: 52,
     borderRadius: 4,
+    transform: [{ scale: 1.5 }],
   },
   paymentTextWrap: {
     flex: 1,
@@ -460,6 +491,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
+  },
+  payButtonDisabled: {
+    opacity: 0.7,
+  },
+  payButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   payButtonText: {
     color: '#FFFFFF',

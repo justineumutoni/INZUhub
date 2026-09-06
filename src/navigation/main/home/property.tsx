@@ -9,6 +9,7 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -43,6 +44,7 @@ interface PropertyProps {
 
 export function Property({ onSelectProperty }: PropertyProps) {
   const [activeCategoryId, setActiveCategoryId] = useState<string>('1');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [properties, setProperties] = useState<PropertyDetailData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -61,7 +63,7 @@ export function Property({ onSelectProperty }: PropertyProps) {
     }
 
     try {
-      const data = await getProperties(selectedCategory);
+      const data = await getProperties(selectedCategory, searchQuery);
       setProperties(data);
     } catch (err) {
       console.warn('Error loading properties:', err);
@@ -69,7 +71,7 @@ export function Property({ onSelectProperty }: PropertyProps) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedCategory]);
+  }, [searchQuery, selectedCategory]);
 
   useEffect(() => {
     loadProperties();
@@ -104,8 +106,10 @@ export function Property({ onSelectProperty }: PropertyProps) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#2C56C0" />
       {/* Main Scrollable Content */}
       <ScrollView
+        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -118,7 +122,7 @@ export function Property({ onSelectProperty }: PropertyProps) {
         }
       >
         {/* Top Navbar */}
-        <Navbar />
+        <Navbar onSearchChange={setSearchQuery} />
 
         {/* Categories Section */}
         <View style={styles.categoriesContainer}>
@@ -146,7 +150,7 @@ export function Property({ onSelectProperty }: PropertyProps) {
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Recently Added Properties</Text>
                 <TouchableOpacity 
-                  onPress={() => Alert.alert('All Properties', `Displaying ${properties.length} verified listings.`)}
+                  onPress={() => navigation.navigate('SearchDetails')}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Text style={styles.viewAllText}>View All ({properties.length})</Text>
@@ -155,7 +159,7 @@ export function Property({ onSelectProperty }: PropertyProps) {
 
               {/* Property Cards List */}
               <View style={styles.propertyList}>
-                {properties.slice(0, 5).map((prop, idx) => {
+                {properties.map((prop, idx) => {
                   const cardItem = propertyToRowCard(prop, idx);
                   return (
                     <RowCard
@@ -173,7 +177,7 @@ export function Property({ onSelectProperty }: PropertyProps) {
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Featured Locations</Text>
                 <TouchableOpacity 
-                  onPress={() => Alert.alert('Locations', 'Explore top neighborhoods in Kigali and beyond.')}
+                  onPress={() => navigation.navigate('SearchDetails')}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Text style={styles.viewAllText}>View All</Text>
@@ -202,7 +206,7 @@ export function Property({ onSelectProperty }: PropertyProps) {
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Recent Updates</Text>
                 <TouchableOpacity 
-                  onPress={() => Alert.alert('Updates', 'All recent rental and property updates.')}
+                  onPress={() => navigation.navigate('SearchDetails')}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Text style={styles.seeAllText}>See All</Text>
@@ -235,7 +239,10 @@ export function Property({ onSelectProperty }: PropertyProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2C56C0',
+  },
+  scrollView: {
+    backgroundColor: '#ffffff',
   },
   categoriesContainer: {
     marginTop: 4,

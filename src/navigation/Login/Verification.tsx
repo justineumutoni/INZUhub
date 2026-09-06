@@ -18,12 +18,15 @@ import { Ionicons, Feather, FontAwesome } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   signInAnonymously,
-  updateProfile,
+  signInWithCredential,
   GoogleAuthProvider,
+  updateProfile,
   FacebookAuthProvider,
   signInWithPopup,
 } from 'firebase/auth';
@@ -31,6 +34,14 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { signInSchema, resetPasswordSchema, formatZodErrors } from '../../config/validation';
 import type { RootStackParamList } from './Login';
+
+WebBrowser.maybeCompleteAuthSession();
+
+const googleClientIds = {
+  web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+  android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '',
+  ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
+};
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SignIn'>;
@@ -45,6 +56,27 @@ export default function SignIn({ navigation, route }: Props) {
   const [socialLoading, setSocialLoading] = useState<'google' | 'facebook' | null>(null);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'inzuhub' });
+  const [googleRequest, googleResponse, promptGoogle] = AuthSession.useAuthRequest({
+    clientId: googleClientIds.web,
+    androidClientId: googleClientIds.android,
+    iosClientId: googleClientIds.ios,
+    webClientId: googleClientIds.web,
+    responseType: AuthSession.ResponseType.IdToken,
+    scopes: ['openid', 'profile', 'email'],
+    selectAccount: true,
+    redirectUri,
+    prompt: AuthSession.Prompt.SelectAccount,
+  } as AuthSession.GoogleAuthRequestConfig, { authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth' });
+
+  useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      const idToken = googleResponse.params?.id_token;
+      if (idToken) {
+        completeGoogleSignIn(idToken);
+      }
+    }
+  }, [googleResponse]);
 
   // Reset password modal state
   const [showResetModal, setShowResetModal] = useState(false);
@@ -130,23 +162,45 @@ export default function SignIn({ navigation, route }: Props) {
   };
 
   // ── Social Sign-In (Google / Facebook - Instant Mock Login) ─────────────────
+  const completeGoogleSignIn = async (idToken: string) => {
+    setSocialLoading('google');
+    try {
+      const userCredential = await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        uid: userCredential.user.uid,
+        fullName: userCredential.user.displayName || '',
+        email: userCredential.user.email || '',
+        photoURL: userCredential.user.photoURL || '',
+        provider: 'google',
+        lastLoginAt: serverTimestamp(),
+      }, { merge: true });
+      navigation.replace('Home');
+    } catch (error: any) {
+      Alert.alert('Google Sign-In Failed', error?.message || 'Unable to sign in with Google.');
+    } finally {
+      setSocialLoading(null);
+    }
+  };
+
   const handleSocialSignIn = async (providerType: 'google' | 'facebook') => {
+    if (providerType === 'google') {
+      if (!googleClientIds.web || !googleRequest) {
+        Alert.alert('Google Sign-In Setup Required', 'Add the Google OAuth client IDs to your EXPO_PUBLIC_GOOGLE_* environment variables, then rebuild with EAS.');
+        return;
+      }
+      setSocialLoading('google');
+      await promptGoogle();
+      return;
+    }
+
     setSocialLoading(providerType);
     try {
-      const mockData = providerType === 'google' ? {
-        fullName: 'Alex Morgan',
-        email: 'alex.morgan@gmail.com',
-        photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-        phone: '(+1) 555-0199',
-        location: 'New York, USA',
-        status: '10 Applied | Archen',
-        provider: 'google',
-      } : {
+      const mockData = {
         fullName: 'Jordan Smith',
         email: 'jordan.smith@facebook.com',
         photoURL: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-        phone: '(+1) 555-0144',
-        location: 'California, USA',
+        phone: '+250',
+        location: 'Kigali, Rwanda',
         status: '5 Applied | Archen',
         provider: 'facebook',
       };
@@ -166,7 +220,9 @@ export default function SignIn({ navigation, route }: Props) {
           }, { merge: true }).catch(() => {});
         }
       } catch (authErr) {
-        console.warn('Social mock sign-in fallback:', authErr);
+        if ((authErr as any)?.code !== 'auth/admin-restricted-operation') {
+          console.warn('Social mock sign-in fallback:', authErr);
+        }
       }
 
       navigation.replace('Home');

@@ -26,6 +26,7 @@ import { useNavigation, useRoute, useIsFocused, RouteProp } from '@react-navigat
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../Login/Login';
 import type { PropertyDetailData } from '../../../types/property';
+import { getProperties } from '../../../services/properties';
 
 interface AppliedPropertyItem {
   id: string;
@@ -40,6 +41,28 @@ interface AppliedPropertyItem {
   detailData: PropertyDetailData;
 }
 
+function propertyToAccountItem(property: PropertyDetailData, index: number): AppliedPropertyItem {
+  const normalizedStatus = property.status?.toLowerCase() || 'available';
+  const statusColor = normalizedStatus === 'available'
+    ? '#10B981'
+    : normalizedStatus === 'booked'
+      ? '#F97316'
+      : '#F59E0B';
+
+  return {
+    id: property.id || `property-${index}`,
+    title: property.title,
+    location: property.subLocation || property.location || 'Kigali, Rwanda',
+    price: property.price,
+    rating: 'Verified',
+    distance: property.distanceFrom || 'Near city center',
+    status: property.status || 'Available',
+    statusColor,
+    image: property.heroImage || require('../../../../assets/icon.png'),
+    detailData: property,
+  };
+}
+
 const APPLIED_PROPERTIES: AppliedPropertyItem[] = [
   {
     id: '1',
@@ -50,7 +73,7 @@ const APPLIED_PROPERTIES: AppliedPropertyItem[] = [
     distance: '1.2 km from GBK',
     status: 'Booked',
     statusColor: '#F97316',
-    image: require('../../../../assets/propertyImage.jpg'),
+    image: require('../../../../assets/icon.png'),
     detailData: {
       title: '2 Rooms Available',
       price: 'Rp. 1000K',
@@ -64,7 +87,7 @@ const APPLIED_PROPERTIES: AppliedPropertyItem[] = [
       ownerName: 'Courtney Henry',
       ownerRole: 'Landlord',
       ownerAvatar: { uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80' },
-      heroImage: require('../../../../assets/propertyImage.jpg'),
+      heroImage: require('../../../../assets/icon.png'),
       description: '2 rooms available for rent in Jalsot, Jln. Samiri. Equipped with bike parking and clean water.',
     },
   },
@@ -77,7 +100,7 @@ const APPLIED_PROPERTIES: AppliedPropertyItem[] = [
     distance: '1.2 km from Hospital',
     status: 'Available',
     statusColor: '#10B981',
-    image: require('../../../../assets/Property.png'),
+    image: require('../../../../assets/icon.png'),
     detailData: {
       title: '1 Big Hall at Lalitpur',
       price: 'Rs. 8000',
@@ -91,7 +114,7 @@ const APPLIED_PROPERTIES: AppliedPropertyItem[] = [
       ownerName: 'Courtney Henry',
       ownerRole: 'Landlord',
       ownerAvatar: { uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80' },
-      heroImage: require('../../../../assets/Property.png'),
+      heroImage: require('../../../../assets/icon.png'),
       description: '1 big hall room for rent at lalitpur with the facilities of bike parking and tap water.',
     },
   },
@@ -104,7 +127,7 @@ const APPLIED_PROPERTIES: AppliedPropertyItem[] = [
     distance: '0.8 km from City Center',
     status: 'Pending',
     statusColor: '#F59E0B',
-    image: require('../../../../assets/propertyImage.jpg'),
+    image: require('../../../../assets/icon.png'),
     detailData: {
       title: '4 Room Available',
       price: 'Rp. 2000K',
@@ -118,7 +141,7 @@ const APPLIED_PROPERTIES: AppliedPropertyItem[] = [
       ownerName: 'Courtney Henry',
       ownerRole: 'Landlord',
       ownerAvatar: { uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80' },
-      heroImage: require('../../../../assets/propertyImage.jpg'),
+      heroImage: require('../../../../assets/icon.png'),
       description: 'Spacious 4 rooms suitable for family or shared students.',
     },
   },
@@ -131,7 +154,7 @@ const APPLIED_PROPERTIES: AppliedPropertyItem[] = [
     distance: '2.0 km from Metro',
     status: 'Available',
     statusColor: '#10B981',
-    image: require('../../../../assets/Property.png'),
+    image: require('../../../../assets/icon.png'),
     detailData: {
       title: 'Modern Apartment',
       price: 'Rp. 1500K',
@@ -145,7 +168,7 @@ const APPLIED_PROPERTIES: AppliedPropertyItem[] = [
       ownerName: 'Courtney Henry',
       ownerRole: 'Landlord',
       ownerAvatar: { uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80' },
-      heroImage: require('../../../../assets/Property.png'),
+      heroImage: require('../../../../assets/icon.png'),
       description: 'Fully furnished modern apartment with 24/7 security.',
     },
   },
@@ -161,7 +184,7 @@ const LIKED_PROPERTIES: AppliedPropertyItem[] = [
     distance: '0.5 km from Campus',
     status: 'Available',
     statusColor: '#10B981',
-    image: require('../../../../assets/propertyImage.jpg'),
+    image: require('../../../../assets/icon.png'),
     detailData: {
       title: 'Cozy Studio Room',
       price: 'Rp. 850K',
@@ -175,7 +198,7 @@ const LIKED_PROPERTIES: AppliedPropertyItem[] = [
       ownerName: 'Courtney Henry',
       ownerRole: 'Landlord',
       ownerAvatar: { uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80' },
-      heroImage: require('../../../../assets/propertyImage.jpg'),
+      heroImage: require('../../../../assets/icon.png'),
       description: 'Cozy private studio room near university.',
     },
   },
@@ -189,12 +212,14 @@ export function Account() {
   // Display State
   const [displayName, setDisplayName] = useState('Courtney Henry');
   const [displayEmail, setDisplayEmail] = useState('henry11@gmail.com');
-  const [displayLocation, setDisplayLocation] = useState('Texas');
-  const [displayPhone, setDisplayPhone] = useState('(+9) 98125331510');
+  const [displayLocation, setDisplayLocation] = useState('Kigali, Rwanda');
+  const [displayPhone, setDisplayPhone] = useState('+250');
   const [displayStatus, setDisplayStatus] = useState('10 Applied  |  Archen');
   const [photoURL, setPhotoURL] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'applied' | 'liked'>('applied');
+  const [apiProperties, setApiProperties] = useState<AppliedPropertyItem[]>([]);
+  const [propertiesLoading, setPropertiesLoading] = useState(true);
 
   // Edit Modal State
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
@@ -233,6 +258,32 @@ export function Account() {
     }
   }, [isFocused]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAccountProperties = async () => {
+      setPropertiesLoading(true);
+      try {
+        const properties = await getProperties('All');
+        if (isMounted) {
+          setApiProperties(properties.map(propertyToAccountItem));
+        }
+      } catch (error) {
+        console.warn('Error loading account properties:', error);
+      } finally {
+        if (isMounted) {
+          setPropertiesLoading(false);
+        }
+      }
+    };
+
+    loadAccountProperties();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isFocused]);
+
   // Open edit modal if autoEdit route param is passed
   useEffect(() => {
     if (route.params?.autoEdit) {
@@ -241,7 +292,11 @@ export function Account() {
   }, [route.params?.autoEdit]);
 
   const openEditModal = () => {
-    setEditName(displayName);
+    const authenticatedName = auth.currentUser?.displayName?.trim();
+    const profileName = authenticatedName || displayName;
+
+    setSaving(false);
+    setEditName(profileName);
     setEditPhone(displayPhone);
     setEditLocation(displayLocation);
     setEditStatus(displayStatus);
@@ -317,45 +372,41 @@ export function Account() {
     setSaving(true);
     try {
       const user = auth.currentUser;
-      if (user) {
-        // 1. Update Firebase Auth displayName & photoURL
-        await updateProfile(user, {
-          displayName: editName.trim(),
-          photoURL: editPhotoURL || null,
-        }).catch((e) => console.warn('Auth update error:', e));
 
-        // 2. Persist to Firestore
-        await setDoc(
-          doc(db, 'users', user.uid),
-          {
-            fullName: editName.trim(),
-            phone: editPhone.trim(),
-            location: editLocation.trim(),
-            status: editStatus.trim(),
-            photoURL: editPhotoURL || '',
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        ).catch((e: any) => console.warn('Firestore update error:', e));
-      }
-
-      // Update local state
+      // Update the screen immediately; persist both Firebase records in parallel.
       setDisplayName(editName.trim());
       setDisplayPhone(editPhone.trim());
       setDisplayLocation(editLocation.trim());
       setDisplayStatus(editStatus.trim());
       setPhotoURL(editPhotoURL);
       setIsEditModalVisible(false);
+      setSaving(false);
 
-      if (Platform.OS === 'web') {
-        window.alert('Profile updated successfully!');
-      } else {
-        Alert.alert('Success', 'Profile updated successfully!');
+      if (user) {
+        Promise.all([
+          updateProfile(user, {
+            displayName: editName.trim(),
+            photoURL: editPhotoURL || null,
+          }),
+          setDoc(
+            doc(db, 'users', user.uid),
+            {
+              fullName: editName.trim(),
+              phone: editPhone.trim(),
+              location: editLocation.trim(),
+              status: editStatus.trim(),
+              photoURL: editPhotoURL || '',
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          ),
+        ]).catch((error) => {
+          console.warn('Background profile save error:', error);
+        });
       }
     } catch (err: any) {
-      Alert.alert('Save Failed', err?.message || 'Could not update profile. Please try again.');
-    } finally {
       setSaving(false);
+      Alert.alert('Save Failed', err?.message || 'Could not update profile. Please try again.');
     }
   };
 
@@ -423,7 +474,7 @@ export function Account() {
     navigation.navigate('PropertyDetail', { property: item.detailData });
   };
 
-  const currentList = activeTab === 'applied' ? APPLIED_PROPERTIES : LIKED_PROPERTIES;
+  const currentList = activeTab === 'applied' ? apiProperties : LIKED_PROPERTIES;
 
   return (
     <View style={styles.screen}>
@@ -509,7 +560,7 @@ export function Account() {
                     setEditPhone(val);
                     if (formErrors.phone) setFormErrors((prev) => ({ ...prev, phone: '' }));
                   }}
-                  placeholder="(+1) 555-0199"
+                  placeholder="+250"
                   placeholderTextColor="#9CA3AF"
                   keyboardType="phone-pad"
                 />
@@ -527,7 +578,7 @@ export function Account() {
                     setEditLocation(val);
                     if (formErrors.location) setFormErrors((prev) => ({ ...prev, location: '' }));
                   }}
-                  placeholder="e.g. New York, USA"
+                  placeholder="e.g. Kigali, Rwanda"
                   placeholderTextColor="#9CA3AF"
                 />
                 {!!formErrors.location && (
@@ -550,7 +601,10 @@ export function Account() {
               <View style={styles.editModalButtonsRow}>
                 <TouchableOpacity
                   style={styles.cancelButton}
-                  onPress={() => setIsEditModalVisible(false)}
+                  onPress={() => {
+                    setSaving(false);
+                    setIsEditModalVisible(false);
+                  }}
                   activeOpacity={0.7}
                   disabled={saving}
                 >
@@ -738,7 +792,7 @@ export function Account() {
                 activeTab === 'applied' && styles.tabPillTextActive,
               ]}
             >
-              Applied ({APPLIED_PROPERTIES.length})
+              Applied ({apiProperties.length})
             </Text>
           </TouchableOpacity>
 
@@ -763,7 +817,9 @@ export function Account() {
 
         {/* ── Property Cards List ───────────────────────────────────────── */}
         <View style={styles.propertiesList}>
-          {currentList.map((item) => (
+          {activeTab === 'applied' && propertiesLoading ? (
+            <ActivityIndicator size="large" color="#2C56C0" />
+          ) : currentList.map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.propertyCard}

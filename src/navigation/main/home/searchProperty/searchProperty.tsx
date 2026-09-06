@@ -1,159 +1,124 @@
-import React, { useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  Image,
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  FlatList, 
+  TouchableOpacity, 
+  ScrollView, 
+  RefreshControl,
+  ActivityIndicator,
   TextInput,
-  FlatList,
-  TouchableOpacity,
-  Platform,
-  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ItemData, PropertyDetailData } from '../../../../types/property';
+import { RowCard } from '../rowcard';
+import { 
+  getProperties, 
+  propertyToRowCard, 
+} from '../../../../services/properties';
 import { Footer } from '../../../footer/footer';
+import type { RootStackParamList } from '../../../Login/Login';
 
-// Matches the screen params used by this screen and avoids depending on a global
-// RootStackParamList type that may not exist in this file's scope.
-type RootStackParamList = {
-  SearchDetails: {
-    initialQuery?: string;
-  } | undefined;
-};
 
-// ---- Types -----------------------------------------------------------
+interface PropertyProps {
+  onSelectProperty?: (property: PropertyDetailData) => void;
+}
 
-type FilterTabId = 'available' | 'booked';
+type AvailabilityFilter = 'allAvailable' | 'booked';
 
-export type PropertyResult = {
-  id: string;
-  price: string;
-  bhkType: string;
-  city: string;
-  subLocation: string;
-  isAvailable: boolean;
-  thumbnail: any;
-};
+export function SearchDetails({ onSelectProperty }: PropertyProps) {
+  const [activeCategoryId, setActiveCategoryId] = useState<string>('All');
+  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>('allAvailable');
+  const [query, setQuery] = useState<string>('');
+  const [properties, setProperties] = useState<PropertyDetailData[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
-type SearchDetailsProps = Partial<
-  NativeStackScreenProps<RootStackParamList, 'SearchDetails'>
-> & {
-  initialQuery?: string;
-  onBack?: () => void;
-  onSelectProperty?: (property: PropertyResult) => void;
-};
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const isFocused = useIsFocused();
 
-// ---- Static data -------------------------------------------------------
 
-const FILTER_TABS: { id: FilterTabId; label: string; count: number }[] = [
-  { id: 'available', label: 'All Available', count: 14 },
-  { id: 'booked', label: 'Booked', count: 0 },
-];
+  // Load properties from service/Firestore
+  const loadProperties = useCallback(async (isPullRefresh: boolean = false) => {
+    if (isPullRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
 
-const SAMPLE_RESULTS: PropertyResult[] = [
-  {
-    id: '1',
-    price: 'Rp.1000k',
-    bhkType: '1 BHK at Jakarta',
-    city: 'Jakarta',
-    subLocation: 'Jaksel, Jln Samiri',
-    isAvailable: true,
-    thumbnail: require('../../../../../assets/propertyImage.jpg'),
-  },
-  {
-    id: '2',
-    price: 'Rp.1000k',
-    bhkType: '1 BHK at Jakarta',
-    city: 'Jakarta',
-    subLocation: 'Jaksel, Jln Samiri',
-    isAvailable: true,
-    thumbnail: require('../../../../../assets/propertyImage.jpg'),
-  },
-  {
-    id: '3',
-    price: 'Rp.1000k',
-    bhkType: '1 BHK at Jakarta',
-    city: 'Jakarta',
-    subLocation: 'Jaksel, Jln Samiri',
-    isAvailable: true,
-    thumbnail: require('../../../../../assets/propertyImage.jpg'),
-  },
-  {
-    id: '4',
-    price: 'Rp.1000k',
-    bhkType: '1 BHK at Jakarta',
-    city: 'Jakarta',
-    subLocation: 'Jaksel, Jln Samiri',
-    isAvailable: true,
-    thumbnail: require('../../../../../assets/propertyImage.jpg'),
-  },
-];
+    try {
+      const data = await getProperties(activeCategoryId, query);
+      setProperties(data);
+    } catch (err) {
+      console.warn('Error loading properties:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [activeCategoryId, query]);
 
-// ---- Component -----------------------------------------------------------
+  useEffect(() => {
+    loadProperties();
+  }, [loadProperties, isFocused]);
 
-export function SearchDetails({
-  initialQuery,
-  onBack,
-  onSelectProperty,
-  route,
-  navigation,
-}: SearchDetailsProps) {
-  const startingQuery = initialQuery ?? route?.params?.initialQuery ?? 'Sudirm';
+  const visibleProperties = properties.filter((property) => {
+    if (availabilityFilter === 'allAvailable') {
+      return property.status?.toLowerCase() === 'available';
+    }
 
-  const [query, setQuery] = useState(startingQuery);
-  const [activeTab, setActiveTab] = useState<FilterTabId>('available');
-  const [results] = useState<PropertyResult[]>(SAMPLE_RESULTS);
+    return property.status?.toLowerCase() === 'booked';
+  });
+  const availableCount = properties.filter((property) => property.status?.toLowerCase() === 'available').length;
+  const bookedCount = properties.filter((property) => property.status?.toLowerCase() === 'booked').length;
 
-  const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else if (navigation?.canGoBack()) {
-      navigation.goBack();
+  const handleSelectProperty = (property: PropertyDetailData) => {
+    if (onSelectProperty) {
+      onSelectProperty(property);
+    } else {
+      navigation.navigate('PropertyDetail', { property });
     }
   };
 
-  const renderItem = ({ item }: { item: PropertyResult }) => (
-    <TouchableOpacity
-      style={styles.resultCard}
-      activeOpacity={0.8}
-      onPress={() => onSelectProperty?.(item)}
-    >
-      <Image source={item.thumbnail} style={styles.resultImage} resizeMode="cover" />
+  const renderCategoryItem = ({ item }: { item: ItemData }) => {
+    const isActive = item.id === activeCategoryId;
 
-      <View style={styles.resultInfo}>
-        <View style={styles.resultTopRow}>
-          <Text style={styles.resultPrice}>{item.price}</Text>
-          <View style={styles.availabilityWrap}>
-            <View
-              style={[
-                styles.availabilityDot,
-                { backgroundColor: item.isAvailable ? '#22C55E' : '#EF4444' },
-              ]}
-            />
-            <Text style={styles.availabilityText}>
-              {item.isAvailable ? 'Available' : 'Booked'}
-            </Text>
-          </View>
-        </View>
-
-        <Text style={styles.resultSubtitle}>{item.bhkType}</Text>
-
-        <View style={styles.locationRow}>
-          <Ionicons name="location-sharp" size={12} color="#9CA3AF" style={styles.locationIcon} />
-          <Text style={styles.locationText}>{item.subLocation}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+    return (
+      <TouchableOpacity
+        style={[
+          styles.categoryChip,
+          isActive && styles.activeCategoryChip,
+        ]}
+        onPress={() => setActiveCategoryId(item.id)}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.categoryText, isActive ? styles.activeCategoryText : styles.inactiveCategoryText]}>
+          {item.title}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#2C56C0" />
-
-      {/* Header */}
-      <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
+    <SafeAreaView style={styles.container}>
+      {/* Main Scrollable Content */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadProperties(true)}
+            colors={['#2C56C0']}
+            tintColor="#2C56C0"
+          />
+        }
+      >
+        {/* Top Navbar */}
+        <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Search Details</Text>
         </View>
@@ -173,51 +138,160 @@ export function SearchDetails({
         </View>
       </SafeAreaView>
 
-      {/* Body */}
-      <View style={styles.body}>
-        <View style={styles.resultsHeaderRow}>
-          <Text style={styles.resultsHeading}>Showing Results</Text>
-          <Text style={styles.resultsCount}>{results.length} Results</Text>
-        </View>
 
-        <View style={styles.tabsRow}>
-          {FILTER_TABS.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <TouchableOpacity
-                key={tab.id}
-                style={[styles.tabPill, isActive && styles.tabPillActive]}
-                onPress={() => setActiveTab(tab.id)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.tabPillText, isActive && styles.tabPillTextActive]}>
-                  {tab.label}
-                  {tab.id === 'available' ? ` (${tab.count})` : ''}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {loading ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="large" color="#2C56C0" />
+            <Text style={{ marginTop: 10, fontSize: 13, color: '#6B7280', fontWeight: '500' }}>
+              Loading listings...
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Section 1: Recently Added Properties */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Showing Results</Text>
+              <Text style={styles.viewAllText}>{visibleProperties.length} Results</Text>
+            </View>
 
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-        />
-      </View>
+              <View style={styles.availabilityLinks}>
+                {(['allAvailable', 'booked'] as AvailabilityFilter[]).map((filter) => (
+                  <TouchableOpacity
+                    key={filter}
+                    onPress={() => setAvailabilityFilter(filter)}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.availabilityLink,
+                      availabilityFilter === filter && styles.activeAvailabilityLink,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.availabilityLinkText,
+                        availabilityFilter === filter && styles.activeAvailabilityLinkText,
+                      ]}
+                    >
+                      {filter === 'allAvailable'
+                        ? `All Available (${availableCount})`
+                        : `Booked (${bookedCount})`}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-      {/* Bottom Tab Bar */}
-     <Footer activeTab="Search"/>
-    </View>
+              {/* Property Cards List */}
+              <View style={styles.propertyList}>
+                {visibleProperties.map((prop, idx) => {
+                  const cardItem = propertyToRowCard(prop, idx);
+                  return (
+                    <RowCard
+                      key={prop.id || `prop-${idx}`}
+                      property={cardItem}
+                      onPress={() => handleSelectProperty(prop)}
+                    />
+                  );
+                })}
+              </View>
+            </View>
+
+          </>
+        )}
+      </ScrollView>
+
+      {/* Bottom Navigation Bar */}
+      <Footer activeTab="Search" />
+    </SafeAreaView>
   );
 }
 
-// ---- Styles ----------------------------------------------------------
-
 const styles = StyleSheet.create({
-  root: {
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  categoriesContainer: {
+    marginTop: 4,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+  },
+  categoryListContent: {
+    paddingRight: 8,
+    gap: 8,
+  },
+  categoryChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  activeCategoryChip: {
+    backgroundColor: '#2C56C0',
+    borderColor: '#2C56C0',
+  },
+  categoryText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  activeCategoryText: {
+    color: '#FFFFFF',
+  },
+  inactiveCategoryText: {
+    color: '#6B7280',
+  },
+  scrollContent: {
+    paddingBottom: 24,
+  },
+  sectionContainer: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  availabilityLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    marginBottom: 14,
+    paddingHorizontal: 2,
+  },
+  availabilityLink: {
+    paddingVertical: 4,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeAvailabilityLink: {
+    borderBottomColor: '#2C56C0',
+  },
+  availabilityLinkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  activeAvailabilityLinkText: {
+    color: '#2C56C0',
+  },
+  viewAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2C56C0',
+  },
+  propertyList: {
+    gap: 2,
+  },
+   root: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
@@ -225,7 +299,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2C56C0',
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    paddingHorizontal: 20,
+    paddingHorizontal: 30,
     paddingBottom: 20,
   },
   header: {
@@ -233,7 +307,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 15,
-    paddingTop: Platform.OS === 'android' ? 12 : 4,
     paddingBottom: 8,
   },
   backButton: {
@@ -249,6 +322,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+    paddingVertical: 15,
   },
   headerSubtitle: {
     fontSize: 20,
@@ -273,131 +347,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1E293B',
     padding: 0,
-  },
-  body: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-  },
-  resultsHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  resultsHeading: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  resultsCount: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  tabsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
-  tabPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-  },
-  tabPillActive: {
-    backgroundColor: '#1E293B',
-  },
-  tabPillText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  tabPillTextActive: {
-    color: '#FFFFFF',
-  },
-  listContent: {
-    paddingBottom: 12,
-  },
-  resultCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-    borderRadius: 14,
-    padding: 10,
-    marginBottom: 12,
-  },
-  resultImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 10,
-    backgroundColor: '#E5E7EB',
-  },
-  resultInfo: {
-    flex: 1,
-    gap: 3,
-  },
-  resultTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  resultPrice: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  availabilityWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  availabilityDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  availabilityText: {
-    fontSize: 11,
-    color: '#6B7280',
-  },
-  resultSubtitle: {
-    fontSize: 12.5,
-    color: '#6B7280',
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  locationIcon: {
-    marginRight: 3,
-  },
-  locationText: {
-    fontSize: 11.5,
-    color: '#9CA3AF',
-  },
-  tabBarSafeArea: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
-  },
-  tabBarItem: {
-    alignItems: 'center',
-    gap: 3,
-  },
-  tabBarLabel: {
-    fontSize: 11,
-    color: '#9CA3AF',
-  },
-  tabBarLabelActive: {
-    color: '#2C56C0',
-    fontWeight: '600',
   },
 });

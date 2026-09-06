@@ -19,7 +19,7 @@ export const updateData: UpdateProps[] = [
     propertystatus: 'Available',
     appliedCount: '9 Applied',
     viewsCount: '19 Views',
-    updateImage: require('../../../../assets/propertyImage.jpg'),
+    updateImage: require('../../../../assets/icon.png'),
   },
   {
     updateId: '2',
@@ -30,7 +30,7 @@ export const updateData: UpdateProps[] = [
     propertystatus: 'Available',
     appliedCount: '9 Applied',
     viewsCount: '19 Views',
-    updateImage: require('../../../../assets/Property.png'),
+    updateImage: require('../../../../assets/icon.png'),
   },
   {
     updateId: '3',
@@ -41,7 +41,7 @@ export const updateData: UpdateProps[] = [
     propertystatus: 'Available',
     appliedCount: '14 Applied',
     viewsCount: '32 Views',
-    updateImage: require('../../../../assets/propertyImage.jpg'),
+    updateImage: require('../../../../assets/icon.png'),
   },
 ];
 

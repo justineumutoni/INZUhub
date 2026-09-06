@@ -9,11 +9,8 @@ import { PropertyDetailData } from '../types/property';
 
 // Apify credentials & Actor configurations
 // Do NOT place the raw token string here as a fallback!
-const APIFY_ENV = (import.meta as ImportMeta & {
-  env?: Record<string, string | undefined>;
-}).env;
-const APIFY_DEFAULT_TOKEN = APIFY_ENV?.VITE_APIFY_DEFAULT_TOKEN || '';
-const APIFY_DEFAULT_DATASET_ID = APIFY_ENV?.VITE_APIFY_DEFAULT_DATASET_ID || 'ybMDncXCZz6wLf2f5';
+const APIFY_DEFAULT_TOKEN = process.env.EXPO_PUBLIC_APIFY_TOKEN || '';
+const APIFY_DEFAULT_DATASET_ID = process.env.EXPO_PUBLIC_APIFY_DATASET_ID || 'ybMDncXCZz6wLf2f5';
 
 export const APIFY_GOOGLE_PLACES_ACTOR = 'compass~crawler-google-places';
 
@@ -87,6 +84,7 @@ export function formatGooglePlacesListing(raw: any, index: number = 1): Property
     appliedCount,
     viewsCount: reviewsCount,
     ownerName: raw.title.split(' ')[0] + ' Host',
+    ownerPhone: raw.phone || raw.phoneNumber || raw.contactPhone,
     ownerRole: raw.categoryName || 'Property Host',
     ownerAvatar: { uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80' },
     heroImage: { uri: heroUrl },

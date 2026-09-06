@@ -49,6 +49,7 @@ export default function About() {
             // TODO: replace with real banner asset, e.g. require('../../assets/about-banner.png')
             source={require('../../../../../assets/icon.png')}
             style={styles.bannerImage}
+            resizeMode="contain"
           />
         </View>
 
@@ -144,13 +145,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 20,
     marginBottom: 20,
+    height: 180,
     borderRadius: 16,
     overflow: 'hidden',
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bannerImage: {
-    width: '100%',
-    height: 150,
-    backgroundColor: '#E5E7EB',
+    width: 140,
+    height: 140,
   },
   section: {
     marginHorizontal: 20,

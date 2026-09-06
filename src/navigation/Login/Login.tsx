@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,12 +15,15 @@ import {
 import { Ionicons, Feather, FontAwesome } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 import {
   createUserWithEmailAndPassword,
   updateProfile,
   sendEmailVerification,
   signInAnonymously,
   GoogleAuthProvider,
+  signInWithCredential,
   FacebookAuthProvider,
   signInWithPopup,
 } from 'firebase/auth';
@@ -29,6 +32,14 @@ import { auth, db } from '../../config/firebase';
 import { registerSchema, formatZodErrors } from '../../config/validation';
 import type { PropertyDetailData } from '../../types/property';
 
+WebBrowser.maybeCompleteAuthSession();
+
+const googleClientIds = {
+  web: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+  android: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '',
+  ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
+};
+
 // ─── Navigation Types (shared across all screens) ─────────────────────────────
 export type RootStackParamList = {
   Splash: undefined;
@@ -36,9 +47,16 @@ export type RootStackParamList = {
   EmailVerification: { email: string };
   SignIn: { registered?: boolean; email?: string } | undefined;
   Home: undefined;
+  SearchDetails: undefined;
   Settings: undefined;
   Account: { autoEdit?: boolean } | undefined;
   PropertyDetail?: { property?: PropertyDetailData };
+  Messages: {
+    propertyId?: string;
+    ownerName?: string;
+    ownerPhone?: string;
+    propertyTitle?: string;
+  } | undefined;
 };
 
 type Props = {
@@ -58,6 +76,27 @@ export default function Register({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<'google' | 'facebook' | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'inzuhub' });
+  const [googleRequest, googleResponse, promptGoogle] = AuthSession.useAuthRequest({
+    clientId: googleClientIds.web,
+    androidClientId: googleClientIds.android,
+    iosClientId: googleClientIds.ios,
+    webClientId: googleClientIds.web,
+    responseType: AuthSession.ResponseType.IdToken,
+    scopes: ['openid', 'profile', 'email'],
+    selectAccount: true,
+    redirectUri,
+    prompt: AuthSession.Prompt.SelectAccount,
+  } as AuthSession.GoogleAuthRequestConfig, { authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth' });
+
+  useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      const idToken = googleResponse.params?.id_token;
+      if (idToken) {
+        signInWithGoogleCredential(idToken);
+      }
+    }
+  }, [googleResponse]);
 
   // ── Validation using Zod ──────────────────────────────────────────────────
   const isNameValid = fullName.trim().length >= 2;
@@ -134,23 +173,46 @@ export default function Register({ navigation }: Props) {
   };
 
   // ── Social Sign-Up (Google / Facebook - Instant Mock Login) ─────────────────
+  const signInWithGoogleCredential = async (idToken: string) => {
+    setSocialLoading('google');
+    try {
+      const credential = GoogleAuthProvider.credential(idToken);
+      const userCredential = await signInWithCredential(auth, credential);
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        uid: userCredential.user.uid,
+        fullName: userCredential.user.displayName || '',
+        email: userCredential.user.email || '',
+        photoURL: userCredential.user.photoURL || '',
+        provider: 'google',
+        lastLoginAt: serverTimestamp(),
+      }, { merge: true });
+      navigation.replace('Home');
+    } catch (error: any) {
+      Alert.alert('Google Sign-In Failed', error?.message || 'Unable to sign in with Google.');
+    } finally {
+      setSocialLoading(null);
+    }
+  };
+
   const handleSocialSignUp = async (providerType: 'google' | 'facebook') => {
+    if (providerType === 'google') {
+      if (!googleClientIds.web || !googleRequest) {
+        Alert.alert('Google Sign-In Setup Required', 'Add the Google OAuth client IDs to your EXPO_PUBLIC_GOOGLE_* environment variables, then rebuild with EAS.');
+        return;
+      }
+      setSocialLoading('google');
+      await promptGoogle();
+      return;
+    }
+
     setSocialLoading(providerType);
     try {
-      const mockData = providerType === 'google' ? {
-        fullName: 'Alex Morgan',
-        email: 'alex.morgan@gmail.com',
-        photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-        phone: '(+1) 555-0199',
-        location: 'New York, USA',
-        status: '10 Applied | Archen',
-        provider: 'google',
-      } : {
+      const mockData = {
         fullName: 'Jordan Smith',
         email: 'jordan.smith@facebook.com',
         photoURL: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-        phone: '(+1) 555-0144',
-        location: 'California, USA',
+        phone: '+250',
+        location: 'Kigali, Rwanda',
         status: '5 Applied | Archen',
         provider: 'facebook',
       };
@@ -170,7 +232,9 @@ export default function Register({ navigation }: Props) {
           }, { merge: true }).catch(() => {});
         }
       } catch (authErr) {
-        console.warn('Social mock login fallback:', authErr);
+        if ((authErr as any)?.code !== 'auth/admin-restricted-operation') {
+          console.warn('Social mock login fallback:', authErr);
+        }
       }
 
       navigation.replace('Home');

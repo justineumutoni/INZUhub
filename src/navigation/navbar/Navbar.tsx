@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export function Navbar() {
+interface NavbarProps {
+  onSearchChange?: (value: string) => void;
+}
+
+export function Navbar({ onSearchChange }: NavbarProps) {
   const [text, setText] = useState('');
 
   const handleSearch = () => {
@@ -20,7 +24,10 @@ export function Navbar() {
           <Ionicons name="location-sharp" size={18} color="#2C56C0" style={styles.inputIcon} />
           <TextInput
             style={styles.textInput}
-            onChangeText={setText}
+            onChangeText={(value) => {
+              setText(value);
+              onSearchChange?.(value);
+            }}
             value={text}
             placeholder="Search address or near you..."
             placeholderTextColor="#999999"
