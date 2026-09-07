@@ -10,5 +10,6 @@
       "@firebase/auth": ["./node_modules/@firebase/auth/dist/auth-public.d.ts"],
       "@firebase/firestore": ["./node_modules/@firebase/firestore/dist/intermediate/firestore/src/api.d.ts"]
     }
-  }
+  },
+  "exclude": ["node_modules"]
 }

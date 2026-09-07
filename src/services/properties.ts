@@ -20,7 +20,7 @@ import {
 } from './apify';
 
 const PROPERTIES_COLLECTION = 'properties';
-const FIRESTORE_READ_TIMEOUT_MS = 5000;
+const FIRESTORE_READ_TIMEOUT_MS = 15000;
 const BOOKING_WRITE_TIMEOUT_MS = 10000;
 let propertiesCache: PropertyDetailData[] | null = null;
 
@@ -188,7 +188,9 @@ export async function getProperties(
     propertiesCache = list;
     return filterProperties(list, category, searchQuery);
   } catch (error) {
-    console.warn('Firestore getProperties error, using sample listings:', error);
+    if (!(error instanceof Error && error.message === 'Firestore properties request timed out')) {
+      console.warn('Firestore getProperties error, using sample listings:', error);
+    }
     propertiesCache = SAMPLE_REAL_ESTATE_LISTINGS;
     return filterProperties(propertiesCache, category, searchQuery);
   }

@@ -43,6 +43,12 @@ const googleClientIds = {
   ios: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
 };
 
+const hasGoogleClientId = Platform.OS === 'android'
+  ? Boolean(googleClientIds.android)
+  : Platform.OS === 'ios'
+    ? Boolean(googleClientIds.ios)
+    : Boolean(googleClientIds.web);
+
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SignIn'>;
   route: RouteProp<RootStackParamList, 'SignIn'>;
@@ -56,7 +62,9 @@ export default function SignIn({ navigation, route }: Props) {
   const [socialLoading, setSocialLoading] = useState<'google' | 'facebook' | null>(null);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'inzuhub' });
+  const redirectUri = Platform.OS === 'web'
+    ? AuthSession.makeRedirectUri({ scheme: 'inzuhub' })
+    : 'com.inzuhub.hub:/oauthredirect';
   const [googleRequest, googleResponse, promptGoogle] = AuthSession.useAuthRequest({
     clientId: googleClientIds.web,
     androidClientId: googleClientIds.android,
@@ -184,7 +192,7 @@ export default function SignIn({ navigation, route }: Props) {
 
   const handleSocialSignIn = async (providerType: 'google' | 'facebook') => {
     if (providerType === 'google') {
-      if (!googleClientIds.web || !googleRequest) {
+      if (!hasGoogleClientId || !googleRequest) {
         Alert.alert('Google Sign-In Setup Required', 'Add the Google OAuth client IDs to your EXPO_PUBLIC_GOOGLE_* environment variables, then rebuild with EAS.');
         return;
       }

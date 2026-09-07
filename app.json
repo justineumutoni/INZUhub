@@ -14,7 +14,8 @@
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+        "package": "com.inzuhub.hub"
     },
     "plugins": [
       "expo-font",
