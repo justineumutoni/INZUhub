@@ -82,9 +82,7 @@ export default function Register({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<'google' | 'facebook' | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const redirectUri = Platform.OS === 'web'
-    ? AuthSession.makeRedirectUri({ scheme: 'inzuhub' })
-    : 'com.inzuhub.hub:/oauthredirect';
+  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'inzuhub' });
   const [googleRequest, googleResponse, promptGoogle] = AuthSession.useAuthRequest({
     clientId: googleClientIds.web,
     androidClientId: googleClientIds.android,
@@ -204,11 +202,33 @@ export default function Register({ navigation }: Props) {
 
   const handleSocialSignUp = async (providerType: 'google' | 'facebook') => {
     if (providerType === 'google') {
-      if (!hasGoogleClientId || !googleRequest) {
-        Alert.alert('Google Sign-In Setup Required', 'Add the Google OAuth client IDs to your EXPO_PUBLIC_GOOGLE_* environment variables, then rebuild with EAS.');
+      setSocialLoading('google');
+      if (Platform.OS === 'web') {
+        try {
+          const provider = new GoogleAuthProvider();
+          const userCredential = await signInWithPopup(auth, provider);
+          await setDoc(doc(db, 'users', userCredential.user.uid), {
+            uid: userCredential.user.uid,
+            fullName: userCredential.user.displayName || '',
+            email: userCredential.user.email || '',
+            photoURL: userCredential.user.photoURL || '',
+            provider: 'google',
+            lastLoginAt: serverTimestamp(),
+          }, { merge: true });
+          navigation.replace('Home');
+        } catch (error: any) {
+          Alert.alert('Google Sign-In Failed', error?.message || 'Unable to sign in with Google.');
+        } finally {
+          setSocialLoading(null);
+        }
         return;
       }
-      setSocialLoading('google');
+
+      if (!hasGoogleClientId || !googleRequest) {
+        Alert.alert('Google Sign-In Setup Required', 'Add the Google OAuth client IDs to your EXPO_PUBLIC_GOOGLE_* environment variables, then rebuild with EAS.');
+        setSocialLoading(null);
+        return;
+      }
       await promptGoogle();
       return;
     }

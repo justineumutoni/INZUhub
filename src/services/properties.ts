@@ -20,7 +20,7 @@ import {
 } from './apify';
 
 const PROPERTIES_COLLECTION = 'properties';
-const FIRESTORE_READ_TIMEOUT_MS = 15000;
+const FIRESTORE_READ_TIMEOUT_MS = 5000;
 const BOOKING_WRITE_TIMEOUT_MS = 10000;
 let propertiesCache: PropertyDetailData[] | null = null;
 

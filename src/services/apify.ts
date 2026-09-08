@@ -11,6 +11,7 @@ import { PropertyDetailData } from '../types/property';
 // Do NOT place the raw token string here as a fallback!
 const APIFY_DEFAULT_TOKEN = process.env.EXPO_PUBLIC_APIFY_TOKEN || '';
 const APIFY_DEFAULT_DATASET_ID = process.env.EXPO_PUBLIC_APIFY_DATASET_ID || 'ybMDncXCZz6wLf2f5';
+const APIFY_REQUEST_TIMEOUT_MS = 4000;
 
 export const APIFY_GOOGLE_PLACES_ACTOR = 'compass~crawler-google-places';
 
@@ -331,9 +332,12 @@ export async function fetchApifyDatasetItems(
   datasetId: string,
   apiToken: string = APIFY_DEFAULT_TOKEN || ''
 ): Promise<PropertyDetailData[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), APIFY_REQUEST_TIMEOUT_MS);
+
   try {
     const url = `https://api.apify.com/v2/datasets/${datasetId}/items${apiToken ? `?token=${apiToken}` : ''}`;
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) {
       throw new Error(`Apify Dataset API returned HTTP ${response.status}`);
     }
@@ -345,6 +349,8 @@ export async function fetchApifyDatasetItems(
   } catch (error) {
     console.warn('Apify dataset fetch error, returning sample dataset:', error);
     return SAMPLE_REAL_ESTATE_LISTINGS;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -399,9 +405,12 @@ export async function fetchGooglePlacesDatasetItems(
   datasetId: string = APIFY_DEFAULT_DATASET_ID,
   apiToken: string = APIFY_DEFAULT_TOKEN
 ): Promise<PropertyDetailData[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), APIFY_REQUEST_TIMEOUT_MS);
+
   try {
     const url = `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiToken}`;
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) {
       throw new Error(`Google Places Dataset API returned HTTP ${response.status}`);
     }
@@ -413,6 +422,8 @@ export async function fetchGooglePlacesDatasetItems(
   } catch (error) {
     console.warn('Error fetching Google Places dataset, returning fallback:', error);
     return SAMPLE_REAL_ESTATE_LISTINGS;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
