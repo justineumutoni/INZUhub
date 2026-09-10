@@ -91,6 +91,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 5,
+    bottom: 0,
   },
   tabItem: {
     alignItems: 'center',
