@@ -17,7 +17,7 @@ export const propertyData: RowCardProps[] = [
     price: 2500000,
     howLong: '2 days ago',
     propertystatus: 'available',
-    imageSource: require('../../../../assets/icon.png'),
+    imageSource: require('../../../../../assets/icon.png'),
   },
   {
     idName: '2',
@@ -26,7 +26,7 @@ export const propertyData: RowCardProps[] = [
     price: 1200000,
     howLong: '5 days ago',
     propertystatus: 'available',
-    imageSource: require('../../../../assets/icon.png'),
+    imageSource: require('../../../../../assets/icon.png'),
   },
   {
     idName: '3',
@@ -35,7 +35,7 @@ export const propertyData: RowCardProps[] = [
     price: 850000,
     howLong: '1 week ago',
     propertystatus: 'pending',
-    imageSource: require('../../../../assets/icon.png'),
+    imageSource: require('../../../../../assets/icon.png'),
   },
   {
     idName: '4',
@@ -44,7 +44,7 @@ export const propertyData: RowCardProps[] = [
     price: 850000,
     howLong: '1 week ago',
     propertystatus: 'pending',
-    imageSource: require('../../../../assets/icon.png'),
+    imageSource: require('../../../../../assets/icon.png'),
   },
   {
     idName: '5',
@@ -53,7 +53,7 @@ export const propertyData: RowCardProps[] = [
     price: 850000,
     howLong: '1 week ago',
     propertystatus: 'pending',
-    imageSource: require('../../../../assets/icon.png'),
+    imageSource: require('../../../../../assets/icon.png'),
   },
 ];
 

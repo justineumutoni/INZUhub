@@ -37,12 +37,12 @@ const DEFAULT_PROPERTY: PropertyDetailData = {
   ownerName: 'Courtney Henry',
   ownerRole: 'Landlord',
   ownerAvatar: { uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80' },
-  heroImage: require('../../../../../assets/icon.png'),
+  heroImage: require('../../../../../../assets/icon.png'),
   galleryImages: [
-    require('../../../../../assets/icon.png'),
-    require('../../../../../assets/icon.png'),
-    require('../../../../../assets/icon.png'),
-    require('../../../../../assets/icon.png'),
+    require('../../../../../../assets/icon.png'),
+    require('../../../../../../assets/icon.png'),
+    require('../../../../../../assets/icon.png'),
+    require('../../../../../../assets/icon.png'),
   ],
   extraPhotosCount: 5,
   description: '1 big hall room for rent at lalitpur, ktm with the facilities of bike parking and tap water . It offers 1 bedroom,and a 1 common bathroom for whole flat . It is suitable for student only. Price is negotiable for student only.',
@@ -127,7 +127,7 @@ export function PropertyDetail({ property, onBack, route, navigation }: Property
         {/* 1. Hero Image with Overlay */}
         <View style={styles.heroContainer}>
           <ImageBackground
-            source={data.heroImage || require('../../../../../assets/icon.png')}
+            source={data.heroImage || require('../../../../../../assets/icon.png')}
             style={styles.heroImage}
             imageStyle={styles.heroImageStyle}
             resizeMode="cover"

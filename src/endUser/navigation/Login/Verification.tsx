@@ -30,7 +30,7 @@ import {
   FacebookAuthProvider,
   signInWithPopup,
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { signInSchema, resetPasswordSchema, formatZodErrors } from '../../config/validation';
 import type { RootStackParamList } from './Login';
@@ -146,7 +146,7 @@ export default function SignIn({ navigation, route }: Props) {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
-      navigation.replace('Home');
+      await navigateAfterLogin();
     } catch (err: any) {
       const code = err?.code ?? '';
       if (
@@ -167,6 +167,17 @@ export default function SignIn({ navigation, route }: Props) {
     }
   };
 
+  const navigateAfterLogin = async () => {
+    if (!auth.currentUser) {
+      navigation.replace('Home');
+      return;
+    }
+    const profile = await getDoc(doc(db, 'users', auth.currentUser.uid));
+    const profileData = profile.data();
+    const role = String(profileData?.role || '').toLowerCase();
+    navigation.replace(role === 'landlord' || profileData?.businessName ? 'LandlordHome' : 'Home');
+  };
+
   // ── Social Sign-In (Google / Facebook - Instant Mock Login) ─────────────────
   const completeGoogleSignIn = async (idToken: string) => {
     setSocialLoading('google');
@@ -180,7 +191,7 @@ export default function SignIn({ navigation, route }: Props) {
         provider: 'google',
         lastLoginAt: serverTimestamp(),
       }, { merge: true });
-      navigation.replace('Home');
+      await navigateAfterLogin();
     } catch (error: any) {
       Alert.alert('Google Sign-In Failed', error?.message || 'Unable to sign in with Google.');
     } finally {
@@ -203,7 +214,7 @@ export default function SignIn({ navigation, route }: Props) {
             provider: 'google',
             lastLoginAt: serverTimestamp(),
           }, { merge: true });
-          navigation.replace('Home');
+          await navigateAfterLogin();
         } catch (error: any) {
           Alert.alert('Google Sign-In Failed', error?.message || 'Unable to sign in with Google.');
         } finally {
@@ -253,7 +264,7 @@ export default function SignIn({ navigation, route }: Props) {
         }
       }
 
-      navigation.replace('Home');
+      await navigateAfterLogin();
     } catch (err: any) {
       navigation.replace('Home');
     } finally {

@@ -47,7 +47,7 @@ export default function About() {
         <View style={styles.bannerWrapper}>
           <Image
             // TODO: replace with real banner asset, e.g. require('../../assets/about-banner.png')
-            source={require('../../../../../assets/icon.png')}
+            source={require('../../../../../../assets/icon.png')}
             style={styles.bannerImage}
             resizeMode="contain"
           />

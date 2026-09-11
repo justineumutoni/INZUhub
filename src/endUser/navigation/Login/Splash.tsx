@@ -43,9 +43,9 @@ const Splash = ({ navigation }: Props) => {
       }).start();
     });
 
-    // Navigate to Login after 2.8 seconds
+    // Navigate to the login form after the splash animation.
     const timer = setTimeout(() => {
-      navigation.replace('Login');
+      navigation.replace('SignIn');
     }, 5000);
 
     return () => clearTimeout(timer);
@@ -63,7 +63,7 @@ const Splash = ({ navigation }: Props) => {
         ]}
       >
         <View style={styles.logoCircle}>
-          <Image source={require('../../../assets/icon1.png')} style={styles.logoIcon} />
+          <Image source={require('../../../../assets/icon1.png')} style={styles.logoIcon} />
         </View>
       </Animated.View>
 

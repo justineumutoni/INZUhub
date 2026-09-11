@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { sendEmailVerification } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import type { RootStackParamList } from './Login';
 
@@ -56,7 +56,10 @@ export default function EmailVerification({ navigation, route }: Props) {
         } catch (e) {
           console.warn('Firestore write error:', e);
         }
-        navigation.replace('Home');
+        const profile = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        const profileData = profile.data();
+        const role = String(profileData?.role || '').toLowerCase();
+        navigation.replace(role === 'landlord' || profileData?.businessName ? 'LandlordHome' : 'Home');
       } else {
         Alert.alert(
           'Email Not Verified Yet',

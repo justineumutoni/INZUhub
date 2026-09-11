@@ -53,6 +53,7 @@ export type RootStackParamList = {
   EmailVerification: { email: string };
   SignIn: { registered?: boolean; email?: string } | undefined;
   Home: undefined;
+  LandlordHome: undefined;
   SearchDetails: undefined;
   Settings: undefined;
   Account: { autoEdit?: boolean } | undefined;
@@ -71,8 +72,11 @@ type Props = {
 
 // ─── Register Screen ───────────────────────────────────────────────────────────
 export default function Register({ navigation }: Props) {
+  const [accountType, setAccountType] = useState<'tenant' | 'landlord'>('tenant');
   const [fullName, setFullName] = useState('');
+  const [businessName, setBusinessName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -106,7 +110,9 @@ export default function Register({ navigation }: Props) {
 
   // ── Validation using Zod ──────────────────────────────────────────────────
   const isNameValid = fullName.trim().length >= 2;
+  const isBusinessNameValid = businessName.trim().length >= 2;
   const isEmailValid = email.includes('@') && email.includes('.');
+  const isPhoneValid = phone.trim().length >= 7;
   const passwordsMatch = password.length >= 6 && password === confirmPassword;
 
   const validate = () => {
@@ -120,6 +126,16 @@ export default function Register({ navigation }: Props) {
     if (!parseResult.success) {
       setErrors(formatZodErrors(parseResult.error));
       return false;
+    }
+
+    if (accountType === 'landlord') {
+      const landlordErrors: { [key: string]: string } = {};
+      if (!isBusinessNameValid) landlordErrors.businessName = 'Property or business name is required.';
+      if (!isPhoneValid) landlordErrors.phone = 'A valid phone number is required.';
+      if (Object.keys(landlordErrors).length > 0) {
+        setErrors(landlordErrors);
+        return false;
+      }
     }
 
     setErrors({});
@@ -144,21 +160,27 @@ export default function Register({ navigation }: Props) {
         });
       };
 
-      // 2. Update display name with quick timeout
-      await withTimeout(updateProfile(cred.user, { displayName: fullName.trim() }), 2500);
+      // 2. Update Auth and save the profile in parallel to reduce signup latency.
+      const profileData = {
+        uid: cred.user.uid,
+        fullName: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        role: accountType,
+        ...(accountType === 'landlord' ? {
+          businessName: businessName.trim(),
+          phone: phone.trim(),
+        } : {}),
+        emailVerified: false,
+        createdAt: serverTimestamp(),
+      };
+      const profileWrite = setDoc(doc(db, 'users', cred.user.uid), profileData);
+      await Promise.all([
+        withTimeout(updateProfile(cred.user, { displayName: fullName.trim() }), 2000),
+        withTimeout(profileWrite, 2500),
+      ]);
 
-      // 3. Trigger email verification and Firestore save non-blockingly
-      withTimeout(sendEmailVerification(cred.user), 3000);
-      withTimeout(
-        setDoc(doc(db, 'users', cred.user.uid), {
-          uid: cred.user.uid,
-          fullName: fullName.trim(),
-          email: email.trim().toLowerCase(),
-          emailVerified: false,
-          createdAt: serverTimestamp(),
-        }),
-        3000
-      );
+      // Verification email should not delay the account confirmation screen.
+      void withTimeout(sendEmailVerification(cred.user), 3000);
 
       // 4. Navigate to Sign In with success popup message
       navigation.navigate('SignIn', { registered: true, email: email.trim() });
@@ -298,6 +320,23 @@ export default function Register({ navigation }: Props) {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Create an Account</Text>
 
+              <View style={styles.accountTypeSwitch}>
+                <TouchableOpacity
+                  style={[styles.accountTypeOption, accountType === 'tenant' && styles.accountTypeOptionActive]}
+                  onPress={() => { setAccountType('tenant'); setErrors({}); }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.accountTypeText, accountType === 'tenant' && styles.accountTypeTextActive]}>Tenant</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.accountTypeOption, accountType === 'landlord' && styles.accountTypeOptionActive]}
+                  onPress={() => { setAccountType('landlord'); setErrors({}); }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.accountTypeText, accountType === 'landlord' && styles.accountTypeTextActive]}>Landlord</Text>
+                </TouchableOpacity>
+              </View>
+
               {/* Full Name */}
               <View style={[styles.inputWrapper, !!errors.fullName && styles.inputError]}>
                 <Text style={[styles.floatingLabel, !!errors.fullName && styles.labelError]}>
@@ -318,6 +357,26 @@ export default function Register({ navigation }: Props) {
                 )}
               </View>
               {!!errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
+
+              {accountType === 'landlord' && (
+                <>
+                  <View style={[styles.inputWrapper, !!errors.businessName && styles.inputError]}>
+                    <Text style={[styles.floatingLabel, !!errors.businessName && styles.labelError]}>Property / Business Name</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={businessName}
+                      onChangeText={(t) => { setBusinessName(t); setErrors((e) => ({ ...e, businessName: '' })); }}
+                      placeholder="Enter property or business name"
+                      placeholderTextColor="#94A3B8"
+                      autoCapitalize="words"
+                    />
+                    {isBusinessNameValid && !errors.businessName && (
+                      <View style={styles.rightIcon}><Ionicons name="checkmark-circle" size={20} color="#22C55E" /></View>
+                    )}
+                  </View>
+                  {!!errors.businessName && <Text style={styles.errorText}>{errors.businessName}</Text>}
+                </>
+              )}
 
               {/* Email */}
               <View style={[styles.inputWrapper, !!errors.email && styles.inputError]}>
@@ -340,6 +399,26 @@ export default function Register({ navigation }: Props) {
                 )}
               </View>
               {!!errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+
+              {accountType === 'landlord' && (
+                <>
+                  <View style={[styles.inputWrapper, !!errors.phone && styles.inputError]}>
+                    <Text style={[styles.floatingLabel, !!errors.phone && styles.labelError]}>Phone / WhatsApp</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={phone}
+                      onChangeText={(t) => { setPhone(t); setErrors((e) => ({ ...e, phone: '' })); }}
+                      placeholder="Enter phone number"
+                      placeholderTextColor="#94A3B8"
+                      keyboardType="phone-pad"
+                    />
+                    {isPhoneValid && !errors.phone && (
+                      <View style={styles.rightIcon}><Ionicons name="checkmark-circle" size={20} color="#22C55E" /></View>
+                    )}
+                  </View>
+                  {!!errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+                </>
+              )}
 
               {/* Password */}
               <View style={[styles.inputWrapper, !!errors.password && styles.inputError]}>
@@ -404,7 +483,9 @@ export default function Register({ navigation }: Props) {
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.createButtonText}>Create Account</Text>
+                  <Text style={styles.createButtonText}>
+                    {accountType === 'landlord' ? 'Create Landlord Account' : 'Create Account'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -486,6 +567,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08, shadowRadius: 14, elevation: 4,
   },
   cardTitle: { fontSize: 20, fontWeight: '700', color: '#111827', textAlign: 'center', marginBottom: 22 },
+  accountTypeSwitch: {
+    flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 14,
+    padding: 6, marginBottom: 26,
+  },
+  accountTypeOption: {
+    flex: 1, height: 48, borderRadius: 10, justifyContent: 'center', alignItems: 'center',
+  },
+  accountTypeOptionActive: { backgroundColor: '#2864E8', elevation: 2 },
+  accountTypeText: { color: '#64748B', fontSize: 16, fontWeight: '700' },
+  accountTypeTextActive: { color: '#FFFFFF' },
   inputWrapper: {
     borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, height: 52,
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14,

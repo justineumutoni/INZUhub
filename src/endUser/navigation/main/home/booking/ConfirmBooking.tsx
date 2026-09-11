@@ -71,7 +71,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     icon: 'wallet',
     iconBg: '#FEF3C7',
     iconColor: '#D97706',
-    imageSource: require('../../../../../assets/payment/MTN Logo.png'),
+    imageSource: require('../../../../../../assets/payment/MTN Logo.png'),
   },
   {
     id: 'card',
@@ -80,7 +80,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     icon: 'card',
     iconBg: '#DBEAFE',
     iconColor: '#2C56C0',
-    imageSource: require('../../../../../assets/payment/Credit Card Logo.png'),
+    imageSource: require('../../../../../../assets/payment/Credit Card Logo.png'),
   },
 ];
 
@@ -88,7 +88,7 @@ const DEFAULT_BOOKING: ConfirmBookingData = {
   propertyId: '1',
   title: '1 Big Hall at Lalitpur',
   subLocation: 'Jln. Samiri',
-  heroImage: require('../../../../../assets/icon.png'),
+  heroImage: require('../../../../../../assets/icon.png'),
   price: 'Rs. 8000',
   rent: 8000,
   serviceFee: 200,
