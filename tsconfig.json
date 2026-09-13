@@ -3,6 +3,7 @@
   "compilerOptions": {
     "skipLibCheck": true,
     "strict": true,
+    "types": ["jest"],
     "paths": {
       "firebase/app": ["./node_modules/@firebase/app/dist/app-public.d.ts"],
       "firebase/auth": ["./node_modules/@firebase/auth/dist/auth-public.d.ts"],
